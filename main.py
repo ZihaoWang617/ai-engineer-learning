@@ -1,10 +1,12 @@
+from typing import Optional
+
 import requests
 from rich.console import Console
 from rich.table import Table
 
 console = Console()
 
-def get_exchange_rate(base: str, target: str):
+def get_exchange_rate(base: str, target: str) -> Optional[float]:
     """调用免费汇率API，获取实时汇率"""
     url = f"https://open.er-api.com/v6/latest/{base}"
     response = requests.get(url)
