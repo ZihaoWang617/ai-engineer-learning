@@ -7,6 +7,7 @@ for code, info in currencies.items():
     print(f"{code}: {info['name']}, {info['symbol']}")
 currencies_dict = {code: len(info["popular_pairs"]) for code, info in currencies.items()}
 print(currencies_dict)
-print(currencies.setdefault("JPY", {"name": "Japanese Yen", "symbol": "¥", "popular_pairs": ["USD", "EUR", "CNY"]}))
+currencies.setdefault("JPY", {"name": "Japanese Yen", "symbol": "¥", "popular_pairs": ["USD", "EUR", "CNY"]})
+print(currencies["JPY"])
 currencies["USD"].update({"symbol": "US$"})
 print(currencies["USD"]["symbol"])

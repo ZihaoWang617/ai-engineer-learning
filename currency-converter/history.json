@@ -1,0 +1,30 @@
+[
+    {
+        "base": "USD",
+        "target": "EUR",
+        "amount": 100.0,
+        "result": 86.9722,
+        "rate": 0.869722
+    },
+    {
+        "base": "CNY",
+        "target": "EUR",
+        "amount": 100.0,
+        "result": 12.5721,
+        "rate": 0.125721
+    },
+    {
+        "base": "CNY",
+        "target": "CAD",
+        "amount": 500.0,
+        "result": 100.373,
+        "rate": 0.200746
+    },
+    {
+        "base": "USD",
+        "target": "USD",
+        "amount": 100.0,
+        "result": 100.0,
+        "rate": 1
+    }
+]
