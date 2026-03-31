@@ -19,4 +19,4 @@ def load_history() -> list[dict]:
             data = json.load(f)
             return data
     except FileNotFoundError:
-        return []  
+        return []
