@@ -20,3 +20,11 @@ def load_history() -> list[dict]:
             return data
     except FileNotFoundError:
         return []
+
+def filter_history(base: str = '', target: str = '') -> list[dict]:
+    history = load_history()
+    filtered = []
+    return [record for record in history 
+            if (not base or record["base"] == base)
+            and (not target or record["target"] == target)]
+    

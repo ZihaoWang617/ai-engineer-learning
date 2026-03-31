@@ -33,5 +33,26 @@
         "amount": 100.0,
         "result": 139.2048,
         "rate": 1.392048
+    },
+    {
+        "base": "USD",
+        "target": "CAD",
+        "amount": 100.0,
+        "result": 139.2048,
+        "rate": 1.392048
+    },
+    {
+        "base": "CAD",
+        "target": "USD",
+        "amount": 100.0,
+        "result": 71.8367,
+        "rate": 0.718367
+    },
+    {
+        "base": "CAD",
+        "target": "USD",
+        "amount": 4700.0,
+        "result": 3376.3249,
+        "rate": 0.718367
     }
 ]

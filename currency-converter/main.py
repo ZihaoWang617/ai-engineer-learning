@@ -1,7 +1,7 @@
 from src.models import ConversionRequest, ConversionResult
 from src.converter import convert_currency
 from rich.console import Console
-from src.history import save_record, load_history
+from src.history import filter_history, save_record, load_history
 
 console = Console()
 def main():
@@ -14,6 +14,13 @@ def main():
             if not history:
                 console.print("No history found.")
             else:
+                filter_choice = get_input("Filter by (b)ase or (t)arget currency? Press Enter to skip: ").lower()
+                if filter_choice == 'b':
+                    base_filter = get_valid_currency("Enter base currency to filter by (e.g., USD): ")
+                    history = filter_history(base=base_filter)
+                elif filter_choice == 't':
+                    target_filter = get_valid_currency("Enter target currency to filter by (e.g., USD): ")
+                    history = filter_history(target=target_filter)
                 console.print("Conversion History:")
                 for record in history:
                     console.print(f"{record['amount']} {record['base']} ->  {record['result']} {record['target']} at rate {record['rate']}", style ="bold cyan") 
@@ -21,7 +28,6 @@ def main():
         elif choice =='':
             pass
         else:
-            print("Invalid choice. Please enter 'h', 'q', or press Enter to continue.")
             continue    
         base = get_valid_currency("Please enter your current currency (e.g., USD): ")
         target = get_valid_currency("Please enter the target currency (e.g., EUR): ")
