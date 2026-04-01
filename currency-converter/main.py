@@ -1,28 +1,30 @@
 from src.models import ConversionRequest, ConversionResult
 from src.converter import convert_currency
 from rich.console import Console
-from src.history import filter_history, save_record, load_history
+from src.history import ConversionHistory  
 
 console = Console()
+
 def main():
     print("This is a currency converter.")
-
+    history = ConversionHistory()
     while True:
         choice = get_input("Enter 'h' to view history, 'q' to quit, or press Enter to continue: ").lower()
         if choice == 'h':
-            history = load_history()
-            if not history:
+            if not history.records:
                 console.print("No history found.")
             else:
                 filter_choice = get_input("Filter by (b)ase or (t)arget currency? Press Enter to skip: ").lower()
                 if filter_choice == 'b':
                     base_filter = get_valid_currency("Enter base currency to filter by (e.g., USD): ")
-                    history = filter_history(base=base_filter)
+                    filtered = history.filter(base=base_filter)
                 elif filter_choice == 't':
                     target_filter = get_valid_currency("Enter target currency to filter by (e.g., USD): ")
-                    history = filter_history(target=target_filter)
+                    filtered = history.filter(target=target_filter)
+                else:
+                    filtered = history.records
                 console.print("Conversion History:")
-                for record in history:
+                for record in filtered:
                     console.print(f"{record['amount']} {record['base']} ->  {record['result']} {record['target']} at rate {record['rate']}", style ="bold cyan") 
             continue
         elif choice =='':
@@ -35,7 +37,7 @@ def main():
         request = ConversionRequest(amount=amount, base=base, target=target)
         result = convert_currency(request)
         if result is not None:
-            save_record(result)
+            history.add_record(result)
             display_result(result)
         else:
             console.print("Sorry, we couldn't fetch the exchange rate. Please check your currency codes and try again.", style="bold red")
