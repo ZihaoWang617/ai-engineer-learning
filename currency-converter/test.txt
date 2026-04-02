@@ -1,4 +1,0 @@
-Hello World
-This is Zihao
-I am learning you right now
-This is the end of the file

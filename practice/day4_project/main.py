@@ -1,5 +1,5 @@
-from src.models import Student, Course
-from src.utils import find_best_student, sort_by_gpa
+from practice.day4_project.src.models import Student, Course
+from practice.day4_project.src.utils import find_best_student, sort_by_gpa
 
 def main():
     s1 = Student("Zihao", 24, 3.5, ["CS5010", "CS5200"])

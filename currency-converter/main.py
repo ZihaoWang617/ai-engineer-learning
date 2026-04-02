@@ -6,6 +6,8 @@ from src.history import ConversionHistory
 console = Console()
 
 def main():
+    """Main function to run the currency converter application. It handles user interaction, conversion logic and history management.
+    """
     print("This is a currency converter.")
     history = ConversionHistory()
     while True:
@@ -46,6 +48,13 @@ def main():
             break
 
 def get_input(prompt: str) -> str:
+    """Get user input with a prompt, and handle quit command.
+
+    Args:
+        prompt(str): The prompt message to display to the user.
+    Returns:
+        The user input as a string. If the user enters 'q', the program will exit.
+    """
     value = input(prompt)
     if value.lower() == 'q':
         console.print("Good bye!", style="bold blue")
@@ -53,6 +62,14 @@ def get_input(prompt: str) -> str:
     return value
 
 def get_valid_currency(prompt: str) -> str:
+    """Get a valid 3-letter currency code from the user.
+    
+    Args:
+        prompt(str): The prompt message to display to the user.
+    
+    Returns:
+        A valid 3-letter currency code in uppercase.
+    """
     while True:
         code = get_input(prompt).upper()
         if code.isalpha() and len(code) == 3:
@@ -61,6 +78,10 @@ def get_valid_currency(prompt: str) -> str:
             console.print("Invalid currency code. Please enter a 3-letter currency code.", style="bold red")
 
 def get_valid_amount() -> float:
+    """Get a valid numeric amount from the user.
+    
+    Returns:
+        A valid amount as a float. The function will keep prompting until a valid number is entered"""
     while True:
         try:
             amount = float(get_input("Please enter the amount you want to convert: "))
@@ -69,6 +90,10 @@ def get_valid_amount() -> float:
             console.print("Invalid amount. Please enter a numeric value.", style="bold red")
 
 def display_result(result: ConversionResult):
+    """Display the conversion result to the user in a formatted manner.
+    Args:
+        result(ConversionResult): The conversion result to display.
+    """
     console.print(f"{result.request.amount} {result.request.base} -> {result.converted_amount:.2f} {result.request.target} at an exchange rate of {result.rate:.4f}.", style="bold green")
 
 if __name__ == "__main__":

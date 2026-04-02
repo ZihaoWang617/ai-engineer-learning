@@ -1,4 +1,4 @@
-from src.models import Student
+from practice.day4_project.src.models import Student
 
 def find_best_student(students: list[Student]) -> Student:
     best = students[0]
