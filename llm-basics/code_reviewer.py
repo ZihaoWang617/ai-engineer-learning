@@ -51,6 +51,7 @@ while True:
         ai_reply = response.choices[0].message.content
         messages.append({"role": "assistant", "content": ai_reply})
         print(ai_reply)
+        print(f"\n[Tokens usage: input = {response.usage.prompt_tokens}, output = {response.usage.completion_tokens}, total = {response.usage.total_tokens}]")
     except Exception as e:
         print(f"Error: {e}")
         break
