@@ -26,7 +26,7 @@ while True:
             if content:
                 memory += content 
                 print(content, end = "", flush = True)
-        print() # for new line after the response is complete
+        print()
         messages.append({"role": "assistant", "content": memory})
     except Exception as e:
         print(f"Error: {e}")
