@@ -93,7 +93,10 @@ api_key = os.getenv("OPENAI_API_KEY")
 
 client = OpenAI(api_key = api_key)
 messages = [{
-    "role": "system", "content": "You are a helpful assistant that provide exchange currency, get current weather base on specific city and can calculate math. If the user ask for these, call the function and decide base on specific question. "
+    "role": "system", "content": """
+    ##You are a helpful assistant that provide exchange currency, get current weather base on specific city and can calculate math. 
+    ##If the user ask for these, call the function and decide base on specific question.
+      """
 }]
 question = input("What's your question?")
 messages.append({"role":"user", "content": question})
@@ -103,6 +106,10 @@ response = client.chat.completions.create(
     tools = tools,
     temperature = 0,
 )
+
+print(f"[DEBUG] tool_calls: {response.choices[0].message.tool_calls}")
+print(f"[DEBUG] content: {response.choices[0].message.content}")
+
 if response.choices[0].message.tool_calls is not None:
     tool_call = response.choices[0].message.tool_calls[0]
     arguments = json.loads(tool_call.function.arguments)
