@@ -121,7 +121,7 @@ def ask_anthropic(question):
         max_tokens = 1024,
         messages = messages,
     )
-        print(f"AI_reply:", final_response.content[0].text)
+        print(final_response.content[0].text)
     else:
         print(response.content[0].text)
 
