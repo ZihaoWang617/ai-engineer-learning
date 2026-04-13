@@ -16,7 +16,7 @@ openai_tools = [{
             "properties": {
                 "filepath": {
                     "type": "string",
-                    "description": "the code file to be reivewed"
+                    "description": "the code file to be reviewed"
                 }
             },
             "required": ["filepath"]
@@ -33,7 +33,7 @@ anthropic_tools = [{
         "properties": {
             "filepath": {
                 "type": "string",
-                "description": "the code file to be reivewed"
+                "description": "the code file to be reviewed"
             }
         },
         "required": ["filepath"]
