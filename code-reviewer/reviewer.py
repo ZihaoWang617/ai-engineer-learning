@@ -27,43 +27,6 @@ def review_with_openai(code: str)-> str:
                 memory += content
                 print(content, end = "", flush = True)
         print()
-        messages.append({"role": "assistant", "content": memory})
-        return memory
-    except Exception as e:
-        print(f"Error: {e}")
-        return f"Error: {e}"
-    
-import os
-from dotenv import load_dotenv
-from openai import OpenAI
-from anthropic import Anthropic
-from rich.panel import p
-import prompts
-
-load_dotenv()
-openai_client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-anthropic_client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
-def review_with_openai(code: str)-> str:
-    messages = [{
-        "role": "system",
-        "content": prompts.SYSTEM_PROMPT + "\n\n" + prompts.COT_INSTRUCTION + "\n\n" + prompts.FEW_SHOT_EXAMPLE
-    }]
-    messages.append({"role":"user","content":code})
-    try:
-        response = openai_client.chat.completions.create(
-            model = "gpt-4o-mini",
-            messages = messages,
-            temperature = 0,
-            stream = True,
-        )
-        memory = ""
-        for chunk in response:
-            content = chunk.choices[0].delta.content
-            if content:
-                memory += content
-                print(content, end = "", flush = True)
-        print()
-        messages.append({"role": "assistant", "content": memory})
         return memory
     except Exception as e:
         print(f"Error: {e}")
