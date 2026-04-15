@@ -20,12 +20,12 @@ def main():
         user_input = input("Enter a file path or type 'input' to enter code directly (type 'q' to quit): ")
         if user_input.lower() == 'q':
             print("Exiting the program.")
-            break 
+            break
 
         if os.path.isfile(user_input):
             code = file_tools.read_file(user_input)
             print(f"\nReviewing code from file: {user_input}")
-        else: 
+        else:
             code = get_multiline_input()
             if code.lower() == 'q':
                 print("Exiting the program.")

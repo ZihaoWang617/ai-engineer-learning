@@ -36,17 +36,22 @@ def review_with_anthropic(code: str) -> str:
     messages = []
     messages.append({"role": "user", "content": code})
     memory = ""
-    with anthropic_client.messages.stream(
+    try:
+        with anthropic_client.messages.stream(
         model = "claude-sonnet-4-20250514",
         system = prompts.SYSTEM_PROMPT + "\n\n" + prompts.COT_INSTRUCTION + "\n\n" + prompts.FEW_SHOT_EXAMPLE,
         max_tokens = 1024,
         messages = messages,
     ) as stream:
-        for text in stream.text_stream:
-            print(text,end = "", flush = True)
-            memory += text
-    print()
-    return memory
+            for text in stream.text_stream:
+                print(text,end = "", flush = True)
+                memory += text
+        print()
+        return memory
+    except Exception as e:
+        print(f"Error: {e}")
+        return f"Error: {e}"
+
 
 
 
