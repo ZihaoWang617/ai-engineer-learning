@@ -1,5 +1,4 @@
 import reviewer
-import file_tools
 import os
 
 def get_multiline_input():
@@ -14,35 +13,51 @@ def get_multiline_input():
         lines.append(line)
     return "\n".join(lines)
 
+def pick_model():
+    while True:
+        print("\nPlease pick a model:")
+        print("1. OpenAI (gpt-4o-mini)")
+        print("2. Anthropic (claude-sonnet-4-20250514)")
+        choice = input("Enter 1 or 2: ").strip()
+        if choice == '1':
+            return 'openai'
+        elif choice == '2':
+            return 'anthropic'
+        else:
+            print("Invalid choice. Please enter 1 or 2.")
+
 def main():
     print("Welcome to the Code Reviewer!")
     while True:
-        user_input = input("Enter a file path or type 'input' to enter code directly (type 'q' to quit): ")
-        if user_input.lower() == 'q':
+        user_input = input("Enter a file path or enter code directly (type 'q' to quit): ").strip()
+        if not user_input:
+            print("Empty input. Please try again.")
+            continue
+        elif user_input.lower() == 'q':
             print("Exiting the program.")
             break
-
+        is_filepath = False
         if os.path.isfile(user_input):
-            code = file_tools.read_file(user_input)
             print(f"\nReviewing code from file: {user_input}")
+            review_target = user_input
+            is_filepath = True
         else:
-            code = get_multiline_input()
-            if code.lower() == 'q':
-                print("Exiting the program.")
-                break
-        print("\nPlease pick a model for code review:")
-        print("1. OpenAI (gpt-4o-mini)")
-        print("2. Anthropic (claude-sonnet-4-20250514)")
-        model_choice = input("Enter the number corresponding to your choice: ")
-        if model_choice == '1':
-            print("\nReviewing code with OpenAI...")
-            reviewer.review_with_openai(code)
-        elif model_choice == '2':
-            print("\nReviewing code with Anthropic...")
-            reviewer.review_with_anthropic(code)
-        else:
-            print("Invalid choice. Please try again.")
-        
+            if input("Invalid file path. Do you want to enter code directly? (y/n): ").lower() == 'y':
+                review_target = get_multiline_input()
+                if review_target == 'q':
+                    print("Exiting the program.")
+                    break
+                if not review_target.strip():
+                    print("No code entered. Please try again.")
+                    continue
+            else:
+                continue
+        model_choice = pick_model()
+        if model_choice == 'openai':
+            reviewer.review_with_openai(review_target, is_filepath=is_filepath)
+        else:            
+            reviewer.review_with_anthropic(review_target, is_filepath=is_filepath)
+
 if __name__ == "__main__":
     main()
         

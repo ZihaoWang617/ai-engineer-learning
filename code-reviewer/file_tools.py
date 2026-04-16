@@ -1,9 +1,13 @@
 def read_file(filepath: str) -> str:
     try:
-        with open(filepath, "r") as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return f"Error: file '{filepath}' not found."
+    except UnicodeDecodeError:
+        return f"Error: file '{filepath}' is not valid UTF-8 text."
+    except OSError as e:
+        return f"Error reading '{filepath}': {e}"
 
 
 openai_tools = [{
