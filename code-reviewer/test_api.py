@@ -1,6 +1,6 @@
 import requests
 
-base_url = "http://127.0.0.1:8000"
+base_url = "https://ai-engineer-learning.onrender.com"
 
 def health_check():
     response = requests.get(f"{base_url}/health")
