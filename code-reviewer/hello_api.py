@@ -1,11 +1,12 @@
-from datetime import datetime
-
 import reviewer
 import json
+from datetime import datetime
+from history import ReviewHistory
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
+history = ReviewHistory()
 
 class CodeInput(BaseModel):
     code: str = ""
@@ -44,9 +45,14 @@ def review_code(input: CodeInput):
         result = json.loads(result)
     except json.JSONDecodeError:
         raise HTTPException(status_code = 500, detail = "Failed to parse review result as JSON.")
-    
+    history.add_record(code=input.code, language=input.language, model=input.model, review=result)
+    history.save_to_file("review_history.json")
     return result
 
 @app.get("/health")
 def health_check():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}  
+
+@app.get("/history")
+def get_history():
+    return history.records
