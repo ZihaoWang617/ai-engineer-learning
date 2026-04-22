@@ -19,5 +19,133 @@
             "rating": 2,
             "rating_reason": "The code has a critical syntax error that prevents it from running."
         }
+    },
+    {
+        "id": "f2b04c6f-c9eb-4344-8f0d-cbe1db9f35dd",
+        "timestamp": "2026-04-22T09:00:23.601619",
+        "code": "    if input.model.lower() == \"openai\":\n        result = reviewer.review_with_openai(input.code)",
+        "language": "python",
+        "model": "openai",
+        "review": {
+            "summary": "Checks if the model is 'openai' and calls a review function if true.",
+            "issues": [],
+            "suggestions": "Consider adding error handling for cases where 'input.model' might not be defined or is not a string.",
+            "rating": 7,
+            "rating_reason": "The code is straightforward and functional, but lacks error handling for robustness."
+        }
+    },
+    {
+        "id": "15194aba-ffa5-48bf-8d59-280cc0eea2a3",
+        "timestamp": "2026-04-22T09:00:28.747587",
+        "code": "    if input.model.lower() == \"openai\":\n        result = reviewer.review_with_openai(input.code)",
+        "language": "python",
+        "model": "openai",
+        "review": {
+            "summary": "This code implements a command-line tool for reviewing code using different AI models based on user input.",
+            "issues": [],
+            "suggestions": "Consider adding error handling for the reviewer functions to manage potential exceptions during the review process. Additionally, improve user prompts for clarity and consider using constants for model names.",
+            "rating": 8,
+            "rating_reason": "The code is well-structured and functional, but could benefit from additional error handling and user experience improvements."
+        }
+    },
+    {
+        "id": "b99d88f2-8a2d-46e8-b29f-767b4608f41d",
+        "timestamp": "2026-04-22T09:06:36.470097",
+        "code": "def pick_model():\n    while True:\n        print(\"\\nPlease pick a model:\")\n        print(\"1. OpenAI (gpt-4o-mini)\")\n        print(\"2. Anthropic (claude-sonnet-4-20250514)\")\n        choice = input(\"Enter 1 or 2: \").strip()\n        if choice == '1':\n            return 'openai'\n        elif choice == '2':\n            return 'anthropic'\n        else:\n            print(\"Invalid choice. Please enter 1 or 2.\")",
+        "language": "python",
+        "model": "openai",
+        "review": {
+            "summary": "A function that prompts the user to select a model from two options and returns the corresponding model name.",
+            "issues": [],
+            "suggestions": "Consider adding type hints for the function signature and handling potential exceptions for input.",
+            "rating": 8,
+            "rating_reason": "The code is clear and functional, but could benefit from type hints and input validation improvements."
+        }
+    },
+    {
+        "id": "e542a22e-35d5-4995-ba96-d7d92df048c7",
+        "timestamp": "2026-04-22T09:09:32.689283",
+        "code": "def pick_model():\n    while True:\n        print(\"\\nPlease pick a model:\")\n        print(\"1. OpenAI (gpt-4o-mini)\")\n        print(\"2. Anthropic (claude-sonnet-4-20250514)\")\n        choice = input(\"Enter 1 or 2: \").strip()\n        if choice == '1':\n            return 'openai'\n        elif choice == '2':\n            return 'anthropic'\n        else:\n            print(\"Invalid choice. Please enter 1 or 2.\")",
+        "language": "python",
+        "model": "openai",
+        "review": {
+            "summary": "A function that prompts the user to select a model from two options and returns the corresponding model name.",
+            "issues": [],
+            "suggestions": "Consider adding type hints for the function signature and handling potential exceptions for input.",
+            "rating": 8,
+            "rating_reason": "The code is clear and functional, but could benefit from type hints and improved input handling."
+        }
+    },
+    {
+        "id": "a72db307-f4c3-42bf-be49-f39d0f8d0bcc",
+        "timestamp": "2026-04-22T09:12:37.791886",
+        "code": "def pick_model():\n    while True:\n        print(\"\\nPlease pick a model:\")\n        print(\"1. OpenAI (gpt-4o-mini)\")\n        print(\"2. Anthropic (claude-sonnet-4-20250514)\")\n        choice = input(\"Enter 1 or 2: \").strip()\n        if choice == '1':\n            return 'openai'\n        elif choice == '2':\n            return 'anthropic'\n        else:\n            print(\"Invalid choice. Please enter 1 or 2.\")\n",
+        "language": "python",
+        "model": "anthropic",
+        "review": {
+            "summary": "A user interface function that prompts the user to select between two AI models and returns the corresponding provider name.",
+            "issues": [
+                {
+                    "line": 5,
+                    "description": "Model name 'claude-sonnet-4-20250514' appears to be incorrect or non-existent - Claude models don't follow this naming pattern",
+                    "severity": "medium",
+                    "fix": "Use correct Claude model name like 'claude-3-5-sonnet-20241022' or similar valid model identifier"
+                }
+            ],
+            "suggestions": "Consider adding type hints for the return value. The function could be more flexible by accepting model configurations as parameters rather than hardcoding them. Consider adding docstring to document the function's purpose and return values.",
+            "rating": 7,
+            "rating_reason": "Code works correctly for its purpose but contains an incorrect model name and could benefit from better documentation and flexibility."
+        }
+    },
+    {
+        "id": "6fdd5209-52b2-4aa4-ba1c-7984c0488b60",
+        "timestamp": "2026-04-22T09:28:02.545193",
+        "code": "        async function submitReview() {\n            const code = document.getElementById(\"code-input\").value\n            const model = document.querySelector('input[name=\"model\"]:checked').value\n            const response = await fetch(\"/review\", {\n                method: \"POST\",\n                headers: {\"Content-Type\": \"application/json\"},\n                body: JSON.stringify({code: code, model: model})\n            })\n            const result = await response.json()\n            const issueHTML = result.issues.map(issue => `\n            <li>Line ${issue.line}: ${issue.description} (${issue.severity})</li>\n            `).join(\"\")\n            document.getElementById(\"result-area\").innerHTML = `\n            <h2>Summary</h2>\n            <p>${result.summary}</p>\n            <h2>Rating</h2>\n            <p>${result.rating} - ${result.rating_reason}</p>\n            <h2>Suggestions</h2>\n            <p>${result.suggestions}</p>\n            <h2>Issues</h2>\n            <ul>${issueHTML}</ul>\n            `\n        }",
+        "language": "python",
+        "model": "anthropic",
+        "review": {
+            "summary": "JavaScript function that submits code for review to a server endpoint and displays the formatted results in the DOM.",
+            "issues": [
+                {
+                    "line": 1,
+                    "description": "This is JavaScript code, not Python as indicated in the request",
+                    "severity": "high",
+                    "fix": "Clarify the programming language or provide actual Python code"
+                },
+                {
+                    "line": 3,
+                    "description": "No error handling for missing DOM elements - will throw if elements don't exist",
+                    "severity": "medium",
+                    "fix": "Add null checks: if (!codeElement) throw new Error('Code input not found')"
+                },
+                {
+                    "line": 4,
+                    "description": "No error handling for missing radio button selection - will throw if no model is selected",
+                    "severity": "medium",
+                    "fix": "Add null check: const modelElement = document.querySelector(...); if (!modelElement) throw new Error('No model selected')"
+                },
+                {
+                    "line": 5,
+                    "description": "No error handling for network failures or non-200 responses",
+                    "severity": "medium",
+                    "fix": "Add try-catch block and check response.ok before parsing JSON"
+                },
+                {
+                    "line": 10,
+                    "description": "No error handling if response.json() fails or result structure is invalid",
+                    "severity": "medium",
+                    "fix": "Add validation for expected response structure before accessing properties"
+                },
+                {
+                    "line": 11,
+                    "description": "Potential XSS vulnerability - directly inserting user content without sanitization",
+                    "severity": "high",
+                    "fix": "Use textContent instead of innerHTML for dynamic content, or sanitize HTML"
+                }
+            ],
+            "suggestions": "Add comprehensive error handling with try-catch blocks. Validate DOM element existence before use. Sanitize all dynamic content to prevent XSS attacks. Consider adding loading states and user feedback during the async operation. Add input validation before sending the request.",
+            "rating": 4,
+            "rating_reason": "Functional code but lacks error handling and has security vulnerabilities that could cause runtime errors or XSS attacks"
+        }
     }
 ]

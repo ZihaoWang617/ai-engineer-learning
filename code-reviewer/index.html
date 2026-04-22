@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!--This is Code Reviewer, a tool to help you review code changes-->
+        <style>
+body {
+    font-family: Arial;
+    background-color: #95ffd5;
+    margin: 0;
+    padding: 20px;
+}
+
+.container {
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 30px;
+    background-color: white;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+h1 {
+    color: #333;
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+textarea {
+    width: 100%;
+    height: 200px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+#result-area {
+    margin-top: 20px;
+    padding: 20px;
+    border-radius: 8px;
+    background-color: #f9f9f9;
+}
+        </style>
+    </head>
+    <body>
+        <div class = "container">
+            <h1>Code Reviewer</h1>
+            <p>AI-powered code review tool</p>
+        <textarea id = "code-input" placeholder="Paste your code here..."></textarea>
+        <input type = "file" id = "file-input">
+            <input type = "radio" name = "model" value = "openai">
+            <label for = "openai">OPENAI</label>
+            <input type = "radio" name = "model" value = "anthropic">
+            <label for = "anthropic">ANTHROPIC</label>
+        <button id = "review-button" onclick = "submitReview()">Review Code</button>
+            <div id = "result-area">
+            </div>
+        </div>
+    <script>
+        async function submitReview() {
+            const code = document.getElementById("code-input").value
+            const model = document.querySelector('input[name="model"]:checked').value
+            const response = await fetch("/review", {
+                method: "POST",
+                headers: {"Content-Type": "application/json"},
+                body: JSON.stringify({code: code, model: model})
+            })
+            const result = await response.json()
+            const issueHTML = result.issues.map(issue => `
+            <li>Line ${issue.line}: ${issue.description} (${issue.severity})</li>
+            `).join("")
+            document.getElementById("result-area").innerHTML = `
+            <h2>Summary</h2>
+            <p>${result.summary}</p>
+            <h2>Rating</h2>
+            <p>${result.rating} - ${result.rating_reason}</p>
+            <h2>Suggestions</h2>
+            <p>${result.suggestions}</p>
+            <h2>Issues</h2>
+            <ul>${issueHTML}</ul>
+            `
+        }
+        document.getElementById("file-input").addEventListener("change", function(e) {
+            const file = e.target.files[0]
+            const reader = new FileReader()
+            reader.onload = function(e) {
+                document.getElementById("code-input").value = e.target.result
+            }
+            reader.readAsText(file)
+        })
+    </script>
+    </body>
+</html>

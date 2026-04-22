@@ -4,6 +4,8 @@ from datetime import datetime
 from history import ReviewHistory
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 history = ReviewHistory()
@@ -16,7 +18,7 @@ class CodeInput(BaseModel):
 
 @app.get("/")
 def read_root():
-    return {"message": "Code Review API is running."}
+    return FileResponse("index.html")
 
 @app.get("/greet/{name}")
 def greet(name:str):
