@@ -23,9 +23,12 @@ while True:
         query_embeddings = [question_vector],
         n_results =3
     )
-    context = "\n\n".join(results["documents"][0])
+    context_parts = []
+    for doc, meta in zip(results["documents"][0], results["metadatas"][0]):
+        context_parts.append(f"[来源：{meta['source']}, 第{meta['chunk_index']}块]\n{doc}")
+    context = "\n\n".join(context_parts)
     messages = [
-        {"role": "system", "content": "你是移民顾问，只根据提供的内容回答，不要编造。如果内容里没有答案，说'我没有相关信息'。"},
+        {"role": "system", "content": "你是移民顾问，只根据提供的内容回答，不要编造。回答时请标注资料来源。如果内容里没有答案，说'我没有相关信息'。"},
         {"role": "user", "content": f"Context: {context}\n\nQuestion: {question}"},
     ]
     response = openai_client.chat.completions.create(
