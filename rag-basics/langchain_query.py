@@ -17,10 +17,12 @@ vectorstore = Chroma(
 
 retriever = vectorstore.as_retriever(search_kwargs={"k":3})
 prompt = PromptTemplate(
-    input_variables = ["context", "question"],
+    input_variables = ["context", "question", "chat_history"],
     template = """你是移民顾问，只根据提供的内容回答，不要编造。
 每个内容块开头都有来源标注，格式为[来源：xxx, 第n块]。回答时先给出答案，然后在句子末尾加上来源标注。
 如果内容里没有答案，说'我没有相关信息'。
+    chat history: {chat_history}
+    
     Context: {context}
 
     Question: {question}
@@ -37,27 +39,34 @@ def format_docs(docs):
     return "\n\n".join(parts)
 
 chain = (
-    {"context": retriever | format_docs, "question": RunnablePassthrough()}
+    {"context": lambda x: format_docs(retriever.invoke(x["question"])),
+     "question": lambda x: x["question"],
+     "chat_history": lambda x: x["chat_history"],}
     | prompt
     | llm
     | StrOutputParser()
 )
 
-def ask(question: str) -> str:
+def ask(question: str, chat_history: list = []) -> str:
     try:
-        result = chain.invoke(question)
+        parts = [f"User: {user}\n AI: {ai}" for user, ai in chat_history]
+        history_str = "\n".join(parts)
+        result = chain.invoke({"question": question, "chat_history": history_str})
         return result
     except Exception as e:
         raise Exception(f"Error during question answering: {str(e)}")
 
 if __name__ == "__main__":
     print("欢迎使用移民咨询系统！输入 'q' 退出。")
+    chat_history = []
     while True:
         user_question = input("请输入你的问题: ")
         if user_question.lower() =='q':
             print("Exiting the program.")
             exit(0)
-        print(ask(user_question))
+        answer = ask(user_question, chat_history)
+        print(answer)
+        chat_history.append((user_question, answer))
 
 
 
