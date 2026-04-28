@@ -9,6 +9,9 @@ file = TextLoader("knowledge_base.txt")
 documents = file.load()
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
 chunks = text_splitter.split_documents(documents)
+for i, chunk in enumerate(chunks):
+    chunk.metadata["source"] = "knowledge_base"
+    chunk.metadata["chunk_index"] = i
 embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 vectorstore = Chroma.from_documents(
     documents=chunks,

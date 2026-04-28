@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from query import ask
+from langchain_query import ask
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
