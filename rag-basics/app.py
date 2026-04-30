@@ -24,8 +24,8 @@ def answer_question(input: QuestionInput):
             raise HTTPException(status_code = 500, detail = "Failed to get an answer.")
         if input.session_id not in sessions:
             sessions[input.session_id] = []
-        sessions[input.session_id].append((input.question, answer))
-        return {"answer": answer}
+        sessions[input.session_id].append((input.question, answer["answer"]))
+        return {"answer": answer["answer"], "sources": answer["sources"]}
     except Exception as e:
         raise HTTPException(status_code = 500, detail = f"Error processing the question: {str(e)}")    
 
