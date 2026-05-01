@@ -1,7 +1,9 @@
 import streamlit as st
 import uuid
 import requests
+import os
 
+api = os.getenv("API_URL", "http://127.0.0.1:8000")
 st.set_page_config(page_title = "移民咨询助手", layout = "centered")
 st.title("🇨🇦 AI 移民咨询助手")
 
@@ -21,7 +23,7 @@ if prompt := st.chat_input("请输入你的移民问题..."):
         st.markdown(prompt)
     
     with st.spinner("正在获取答案..."):
-        res = requests.post("http://127.0.0.1:8000/ask", json = {
+        res = requests.post(api + "/ask", json = {
             "question": prompt, 
             "session_id": st.session_state.session_id
 })
