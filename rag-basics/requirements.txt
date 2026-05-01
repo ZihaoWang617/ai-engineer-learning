@@ -7,4 +7,4 @@ openai
 chromadb
 langchain
 langchain-openai
-langchain-chromadb
+langchain-chroma
