@@ -7,7 +7,7 @@ load_dotenv()
 
 file = TextLoader("knowledge_base.txt")
 documents = file.load()
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=200, chunk_overlap=50)
+text_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
 chunks = text_splitter.split_documents(documents)
 for i, chunk in enumerate(chunks):
     chunk.metadata["source"] = "knowledge_base"

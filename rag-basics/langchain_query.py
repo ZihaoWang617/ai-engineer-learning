@@ -1,11 +1,13 @@
-import re
 
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_chroma import Chroma
 from dotenv import load_dotenv
 from langchain_core.prompts import PromptTemplate
-from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
+from langchain_community.retrievers import BM25Retriever
+from langchain_core.documents import Document
+import cohere
+import os
 
 load_dotenv()
 
@@ -18,6 +20,14 @@ vectorstore = Chroma(
 )
 
 retriever = vectorstore.as_retriever(search_kwargs={"k":3})
+stored = vectorstore.get(include = ["documents", "metadatas"])
+docs_for_bm25 = [
+    Document(page_content = text, metadata = meta)
+    for text, meta in zip(stored["documents"], stored["metadatas"])
+]
+bm25_retriever = BM25Retriever.from_documents(docs_for_bm25)
+bm25_retriever.k = 3
+
 prompt = PromptTemplate(
     input_variables = ["context", "question", "chat_history"],
     template = """你是移民顾问，只根据提供的内容回答，不要编造。  
@@ -40,7 +50,7 @@ def format_docs(docs):
     return "\n\n".join(parts)
 
 chain = (
-    {"context": lambda x: format_docs(retriever.invoke(x["question"])),
+    {"context": lambda x: format_docs(hybrid_retriever(x["question"], k=3)),
      "question": lambda x: x["question"],
      "chat_history": lambda x: x["chat_history"],}
     | prompt
@@ -52,15 +62,45 @@ def ask(question: str, chat_history: list = []) -> dict[str, str | list[str]]:
     try:
         parts = [f"User: {user}\n AI: {ai}" for user, ai in chat_history]
         history_str = "\n".join(parts)
-        result = chain.invoke({"question": question, "chat_history": history_str})
-        sources = retriever.invoke(question)
-        if sources:
-            source_info = [f"{doc.metadata.get('source','unknown')} 第{doc.metadata.get('chunk_index','?')}块" for doc in sources]
-        else:
-            source_info = []
-        return {"answer": result, "sources": source_info}
+        docs = rerank_docs(question, hybrid_retriever(question, k=6), top_n=3)
+        context = format_docs(docs)
+        result = prompt | llm | StrOutputParser()
+        answer = result.invoke({
+            "context": context,
+            "question": question,
+            "chat_history": history_str
+        })
+        source_info = [f"{doc.metadata.get('source','unknown')} 第{doc.metadata.get('chunk_index','?')}块"
+                       for doc in docs
+        ]
+        return {"answer": answer, "sources": source_info}
     except Exception as e:
         raise Exception(f"Error during question answering: {str(e)}")
+
+def hybrid_retriever(question: str, k: int) -> list:
+    semantic_docs = retriever.invoke(question)
+    bm25_docs = bm25_retriever.invoke(question)
+    seen = set()
+    combined = []
+    for doc in semantic_docs + bm25_docs:
+        if doc.page_content not in seen:
+            seen.add(doc.page_content)
+            combined.append(doc)
+    return combined[:k]
+
+def rerank_docs(question: str, docs: list, top_n: int =3) -> list:
+    co = cohere.ClientV2(api_key = os.getenv("COHERE_API_KEY"))
+
+    texts = [doc.page_content for doc in docs]
+
+    response = co.rerank(
+        model = "rerank-v3.5",
+        query = question,
+        documents = texts,
+        top_n = top_n
+    )
+    reranked = [docs[result.index] for result in response.results]
+    return reranked
 
 if __name__ == "__main__":
     print("欢迎使用移民咨询系统！输入 'q' 退出。")
