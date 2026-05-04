@@ -1,0 +1,26 @@
+[
+    {
+        "question": "BC PNP对nominees有什么居住要求？",
+        "ground_truth_chunk_index": 0
+    },
+    {
+        "question": "BC PNP Skills Immigration对工资有什么要求？",
+        "ground_truth_chunk_index": 0
+    },
+    {
+        "question": "ee目标candidates是谁?",
+        "ground_truth_chunk_index": 1
+    },
+    {
+        "question": "provincial nomination加多少分到ee里？",
+        "ground_truth_chunk_index": 1
+    },
+    {
+        "question": "对metro vancouver的businesses，最低投资要求多少钱？",
+        "ground_truth_chunk_index": 2
+    },
+    {
+        "question": "对outside metro vancouver的businesses，最低投资要求多少钱?",
+        "ground_truth_chunk_index": 2
+    }
+]
