@@ -1,16 +1,17 @@
-
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from langchain_chroma import Chroma
 from dotenv import load_dotenv
-from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_community.retrievers import BM25Retriever
 from langchain_core.documents import Document
+from langchain_community.chat_message_histories import ChatMessageHistory
+from langchain_core.runnables.history import RunnableWithMessageHistory
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import cohere
 import os
 
 load_dotenv()
-
+co = cohere.ClientV2(api_key = os.getenv("COHERE_API_KEY"))
 embeddings = OpenAIEmbeddings(model = "text-embedding-3-small")
 llm = ChatOpenAI(model = "gpt-4o-mini", temperature = 0.2)
 vectorstore = Chroma(
@@ -28,17 +29,11 @@ docs_for_bm25 = [
 bm25_retriever = BM25Retriever.from_documents(docs_for_bm25)
 bm25_retriever.k = 3
 
-prompt = PromptTemplate(
-    input_variables = ["context", "question", "chat_history"],
-    template = """你是移民顾问，只根据提供的内容回答，不要编造。  
-如果内容里没有答案，说'我没有相关信息'。
-    chat history: {chat_history}
-    
-    Context: {context}
-
-    Question: {question}
-
-    Answer: """
+prompt = ChatPromptTemplate.from_messages([
+    ("system", """你是移民顾问，只根据提供的内容回答，不要编造。 如果内容里没有答案， 说‘我没有相关信息’。"""),
+    MessagesPlaceholder(variable_name = "chat_history"),
+    ("human", "Context: {context}\n\nQuestion: {question}")
+]
 )
 
 def format_docs(docs):
@@ -49,30 +44,39 @@ def format_docs(docs):
         parts.append(f"[来源：{source}, 第{chunk_index}块]\n{doc.page_content}")
     return "\n\n".join(parts)
 
-chain = (
-    {"context": lambda x: format_docs(hybrid_retriever(x["question"], k=3)),
-     "question": lambda x: x["question"],
-     "chat_history": lambda x: x["chat_history"],}
-    | prompt
-    | llm
-    | StrOutputParser()
+rag_chain = prompt | llm | StrOutputParser()
+
+store = {}
+
+def get_session_history(session_id: str):
+    if session_id not in store:
+        store[session_id] = ChatMessageHistory()
+    return store[session_id]
+
+conversational_chain = RunnableWithMessageHistory(
+    rag_chain,
+    get_session_history,
+    input_messages_key= "question",
+    history_messages_key= "chat_history"
 )
 
-def ask(question: str, chat_history: list = []) -> dict[str, str | list[str]]:
+def ask(question: str, session_id: str = "default") -> dict:
     try:
-        parts = [f"User: {user}\n AI: {ai}" for user, ai in chat_history]
-        history_str = "\n".join(parts)
         docs = rerank_docs(question, hybrid_retriever(question, k=6), top_n=3)
         context = format_docs(docs)
-        result = prompt | llm | StrOutputParser()
-        answer = result.invoke({
-            "context": context,
-            "question": question,
-            "chat_history": history_str
-        })
-        source_info = [f"{doc.metadata.get('source','unknown')} 第{doc.metadata.get('chunk_index','?')}块"
-                       for doc in docs
+        source_info = [
+            f"{doc.metadata.get('source', 'unknown')} 第{doc.metadata.get('chunk_index', '?')}块"
+            for doc in docs
         ]
+        answer = conversational_chain.invoke({
+            "context": context,
+            "question": question
+        },
+            config = {
+                "configurable": {
+                    "session_id": session_id
+                }
+            })
         return {"answer": answer, "sources": source_info}
     except Exception as e:
         raise Exception(f"Error during question answering: {str(e)}")
@@ -89,8 +93,6 @@ def hybrid_retriever(question: str, k: int) -> list:
     return combined[:k]
 
 def rerank_docs(question: str, docs: list, top_n: int =3) -> list:
-    co = cohere.ClientV2(api_key = os.getenv("COHERE_API_KEY"))
-
     texts = [doc.page_content for doc in docs]
 
     response = co.rerank(
@@ -104,15 +106,12 @@ def rerank_docs(question: str, docs: list, top_n: int =3) -> list:
 
 if __name__ == "__main__":
     print("欢迎使用移民咨询系统！输入 'q' 退出。")
-    chat_history = []
     while True:
         user_question = input("请输入你的问题: ")
         if user_question.lower() =='q':
             print("Exiting the program.")
             exit(0)
-        answer = ask(user_question, chat_history)
+        answer = ask(user_question, session_id = "default")
         print(answer)
-        chat_history.append((user_question, answer["answer"]))
-
 
 
