@@ -2,6 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
 from langchain.agents import create_agent
+from langchain_query import retrieve_kb_context
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -16,20 +17,6 @@ def calculate(expression: str) -> str:
         return str(result)
     except Exception as e:
         return f"计算出错：{str(e)}"
-
-@tool
-def search_immigration_policy(query: str) -> str:
-    """查询加拿大移民政策信息，例如 Express Entry 分数线、BC PNP 要求等"""
-    mock_data = {
-        "express entry": "Express Entry 最新一轮 CRS 分数线为 491 分（2026年4月）",
-        "bc pnp": "BC PNP Tech Pilot 要求：BC省雇主、NOC TEER 0/1/2/3、无最低分要求",
-        "lmia": "LMIA 处理时间：普通流程 2-6 个月，全球人才流最快 2 周",
-    }
-    query_lower = query.lower()
-    for key, value in mock_data.items():
-        if key in query_lower:
-            return value
-    return "未找到相关政策信息，请尝试更具体的查询关键词"
 
 @tool
 def check_processing_time(visa_type: str) -> str:
@@ -50,6 +37,7 @@ def check_processing_time(visa_type: str) -> str:
             return value
     return f"未找到 '{visa_type}' 的处理时间数据，请尝试： study permit, work permit, visitor visa, pr card."
 
+@tool
 def validate_eligibility(program: str, years_of_experience: int) -> str:
     """检查申请人是否符合特定移民项目的基本资格。
     需要两个参数：
@@ -82,14 +70,18 @@ def validate_eligibility(program: str, years_of_experience: int) -> str:
                 return f"❌ 不符合 {key} 的要求。{rules['message']}，您目前有 {years_of_experience} 年经验"
     return f"未找到 '{program}' 的资格数据，支持查询：express entry、bc pnp、atlantic immigration"
 
+retrieve_kb_tool = tool(retrieve_kb_context)
 
-tools = [calculate, search_immigration_policy, check_processing_time, validate_eligibility]
+tools = [calculate, check_processing_time, validate_eligibility, retrieve_kb_tool]
 
 agent = create_agent(llm, tools)
 
 if __name__ == "__main__":
     result = agent.invoke({
-        "messages": [HumanMessage(content="工作签证的情况怎么样？")]
+        "messages": [HumanMessage(content="BC PNP 都有哪些 stream？")]
     })
     for message in result["messages"]:
         print(f"\n[{message.type}]: {message.content}")
+        if hasattr(message, 'tool_calls') and message.tool_calls:
+            print(f"   → tool_calls: {message.tool_calls}")
+        

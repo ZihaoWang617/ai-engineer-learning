@@ -104,6 +104,36 @@ def rerank_docs(question: str, docs: list, top_n: int =3) -> list:
     reranked = [docs[result.index] for result in response.results]
     return reranked
 
+def retrieve_kb_context(question: str) -> str:
+    """
+    Use to search the Canadian immigration policy knowledge base, which contains information about visa programs (Express Entry, BC PNP, CEC), eligibility criteria, application requirements, and policy updates.
+    Use this tool when:
+    - user asks about specific immigration programs, eligibility requirements, document checklists, or policy details
+    
+    Do NOT use this tool for:
+    - Math calculations (use `calculate` instead)
+    - Processing time queries (use `check_processing_time` instead)  
+    - Eligibility scoring (use `validate_eligibility` instead)
+    - Conversational small talk or greetings
+
+    Args:
+        question: A self-contained query string. Pronouns and references 
+            must be resolved using prior conversation context before 
+            calling this tool.
+            
+            Good: "What are the streams of BC PNP?"
+            Bad:  "What are its streams?"  (pronoun "its" not resolved)
+
+    Returns:
+        Retrieved context chunks from the knowledge base, formatted with inline source citations.
+    """
+    try:
+        docs = rerank_docs(question, hybrid_retriever(question, k=6), top_n=3)
+        context = format_docs(docs)
+        return f"Retrieved context from knowledge base:\n\n{context}"
+    except Exception as e:
+        return f"Error during retrieval query: {str(e)}"
+
 if __name__ == "__main__":
     print("欢迎使用移民咨询系统！输入 'q' 退出。")
     while True:
