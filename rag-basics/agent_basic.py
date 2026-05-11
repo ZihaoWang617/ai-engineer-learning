@@ -5,9 +5,12 @@ from langchain.agents import create_agent
 from langchain_query import retrieve_kb_context
 from dotenv import load_dotenv
 
+from langgraph.checkpoint.memory import InMemorySaver
+
 load_dotenv()
 
 llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+checkpointer = InMemorySaver()
 
 @tool
 def calculate(expression: str) -> str:
@@ -74,14 +77,33 @@ retrieve_kb_tool = tool(retrieve_kb_context)
 
 tools = [calculate, check_processing_time, validate_eligibility, retrieve_kb_tool]
 
-agent = create_agent(llm, tools)
+agent = create_agent(llm, tools, checkpointer = checkpointer)
 
 if __name__ == "__main__":
-    result = agent.invoke({
-        "messages": [HumanMessage(content="BC PNP 都有哪些 stream？")]
-    })
-    for message in result["messages"]:
-        print(f"\n[{message.type}]: {message.content}")
+    config = {"configurable": {"thread_id": "test-1"}}
+    #first round
+    print("=" * 60)
+    print("第一轮：BC PNP是什么？")
+    print("=" * 60)
+    result1 = agent.invoke(
+        {"messages": [HumanMessage(content="BC PNP是什么")]},
+        config = config, # type: ignore
+    )
+    print(result1["messages"][-1].content)
+
+    #second round
+    print("\n" + "=" *60)
+    print("第二轮： 它有几个stream？")
+    print("=" * 60)
+    result2 = agent.invoke(
+        {"messages": [HumanMessage(content = "它有几个stream?")]},
+        config = config, # type: ignore
+    )
+
+    for message in result2["messages"]:
+        print(f"\n[{message.type}]: {message.content[:200]}")
         if hasattr(message, 'tool_calls') and message.tool_calls:
             print(f"   → tool_calls: {message.tool_calls}")
+    
+
         
