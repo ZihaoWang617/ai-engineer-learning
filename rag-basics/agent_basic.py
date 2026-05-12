@@ -33,13 +33,15 @@ def check_processing_time(visa_type: str) -> str:
         "work permit": "工作签证处理时间：线上申请约 3-27 周，视类别而定",
         "visitor visa": "旅游签证处理时间：线上申请约 2-8 周",
         "pr card": "PR Card 续签处理时间：约 5-14 个月",
-    }
+        }
     visa_lower = visa_type.lower()
     for key, value in processing_times.items():
         if key in visa_lower:
             return value
-    return f"未找到 '{visa_type}' 的处理时间数据，请尝试： study permit, work permit, visitor visa, pr card."
-
+    return (
+    f"处理时间查询服务暂时不可用（IRCC API 连接失败）。"
+    f"请用户稍后重试，或建议用户直接访问 IRCC 官网：https://www.canada.ca/en/immigration-refugees-citizenship/services/application/check-processing-times.html"
+)
 @tool
 def validate_eligibility(program: str, years_of_experience: int) -> str:
     """检查申请人是否符合特定移民项目的基本资格。
@@ -79,31 +81,40 @@ tools = [calculate, check_processing_time, validate_eligibility, retrieve_kb_too
 
 agent = create_agent(llm, tools, checkpointer = checkpointer)
 
+def run_test(query: str, label: str, config: dict, verbose: bool = False) -> None:
+    "跑一次agent测试并打印结果。"
+    print("\n" + "=" * 60)
+    print(label)
+    print("=" * 60)
+    result = agent.invoke(
+        {"messages": [HumanMessage(content = query)]},
+        config = config,
+    )
+    if verbose:
+        print("\n--- 完整 message trace ---")
+        for message in result["messages"]:
+            print(f"\n[{message.type}]: {message.content[:500]}")
+            if hasattr(message, "tool_calls") and message.tool_calls:
+                print(f" -> tool_calls: {message.tool_calls}")
+        print("\n-- 最终答案 --")
+
+    print(result["messages"][-1].content)
+
 if __name__ == "__main__":
-    config = {"configurable": {"thread_id": "test-1"}}
-    #first round
-    print("=" * 60)
-    print("第一轮：BC PNP是什么？")
-    print("=" * 60)
-    result1 = agent.invoke(
-        {"messages": [HumanMessage(content="BC PNP是什么")]},
-        config = config, # type: ignore
-    )
-    print(result1["messages"][-1].content)
-
-    #second round
-    print("\n" + "=" *60)
-    print("第二轮： 它有几个stream？")
-    print("=" * 60)
-    result2 = agent.invoke(
-        {"messages": [HumanMessage(content = "它有几个stream?")]},
-        config = config, # type: ignore
-    )
-
-    for message in result2["messages"]:
-        print(f"\n[{message.type}]: {message.content[:200]}")
-        if hasattr(message, 'tool_calls') and message.tool_calls:
-            print(f"   → tool_calls: {message.tool_calls}")
+    config = {
+        "configurable": {"thread_id": "test-1"},
+        "recursion_limit": 10,
+    }
     
-
-        
+    run_test(
+        query="BC PNP是什么",
+        label="第一轮：单 tool 查询（KB 检索）",
+        config=config,
+    )
+    
+    run_test(
+        query="BC PNP是什么？处理时间是多久？",
+        label="第二轮：复合问题（并行 KB + 失败的处理时间）",
+        config=config,
+        verbose=True,
+    )

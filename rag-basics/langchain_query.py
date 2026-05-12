@@ -131,9 +131,13 @@ def retrieve_kb_context(question: str) -> str:
         docs = rerank_docs(question, hybrid_retriever(question, k=6), top_n=3)
         context = format_docs(docs)
         return f"Retrieved context from knowledge base:\n\n{context}"
+    except (ConnectionError, TimeoutError):
+        return ("知识库检索暂时不可用（网络连接问题）。"
+            "请告诉用户该问题可能是临时的，建议稍后重试。")
     except Exception as e:
-        return f"Error during retrieval query: {str(e)}"
-
+        print(f"[ERROR] retrieve_kb_context: {type(e).__name__}: {e}")
+        return ("知识库检索遇到未知问题，请告诉用户系统暂时不可用，"
+            "建议稍后重试或联系支持团队。")
 if __name__ == "__main__":
     print("欢迎使用移民咨询系统！输入 'q' 退出。")
     while True:
