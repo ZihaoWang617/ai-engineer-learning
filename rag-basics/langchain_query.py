@@ -8,16 +8,18 @@ from langchain_community.chat_message_histories import ChatMessageHistory
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 import cohere
+from pathlib import Path
 import os
 
 load_dotenv()
+CHROMA_DIR = Path(__file__).parent / "chroma_db_lc"
 co = cohere.ClientV2(api_key = os.getenv("COHERE_API_KEY"))
 embeddings = OpenAIEmbeddings(model = "text-embedding-3-small")
 llm = ChatOpenAI(model = "gpt-4o-mini", temperature = 0.2)
 vectorstore = Chroma(
     collection_name= "immigration_lc",
     embedding_function = embeddings,
-    persist_directory = "./chroma_db_lc"
+    persist_directory=str(CHROMA_DIR)
 )
 
 retriever = vectorstore.as_retriever(search_kwargs={"k":3})

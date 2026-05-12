@@ -2,8 +2,10 @@ from langchain_community.document_loaders import TextLoader  # 读文件
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_openai import OpenAIEmbeddings  # embedding
 from langchain_chroma import Chroma  # 存入ChromaD
+from pathlib import Path
 from dotenv import load_dotenv
 load_dotenv()
+CHROMA_DIR = Path(__file__).parent / "chroma_db_lc"
 
 file = TextLoader("knowledge_base.txt")
 documents = file.load()
@@ -17,5 +19,5 @@ vectorstore = Chroma.from_documents(
     documents=chunks,
     embedding=embeddings,
     collection_name="immigration_lc",
-    persist_directory="./chroma_db_lc"
+    persist_directory=str(CHROMA_DIR)
 )
