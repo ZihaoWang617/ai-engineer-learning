@@ -1,33 +1,22 @@
 # LeetCode Notes
 
-Personal LeetCode notes organized by pattern (NeetCode 150).
-
 ## Progress
-
 - ✅ Solved: 3 / 150
-- 📚 Reviewed: 0
 - 🎯 Target: 200+ by 2026/09/30
 
-## Patterns Covered
+## Timeline (most recent first)
 
-| Pattern | Problems | Notes |
-|---------|----------|-------|
-| Arrays & Hashing | 3 | [arrays-and-hashing.md](./arrays-and-hashing.md) |
-| Two Pointers | 0 | — |
-| Sliding Window | 0 | — |
-| Binary Search | 0 | — |
-| ... | | |
+### 2026/05/12 (Day 42) — 2 problems
+- [#1 Two Sum](./0001-two-sum.md) — Easy 🟢 — 独立做出
+- [#242 Valid Anagram](./0242-valid-anagram.md) — Easy 🟢 — 独立做出
 
-## Template
+### 2026/05/11 (Day 41) — 1 problem
+- [#217 Contains Duplicate](./0217-contains-duplicate.md) — Easy 🟢 — 独立（O(n²) → O(n)）
 
-For new problems, use [_template.md](./_template.md).
+## By Pattern
 
-## Format
+### Arrays & Hashing (3)
+- #1 Two Sum, #217 Contains Duplicate, #242 Valid Anagram
 
-Each problem includes:
-- Pattern + difficulty
-- Solution code with complexity analysis  
-- Alternative approaches with trade-offs
-- "踩过的坑" (lessons learned)
-- Related problems
-- Spaced repetition review dates
+### Two Pointers (0)
+- —
