@@ -88,7 +88,7 @@ def run_test(query: str, label: str, config: dict, verbose: bool = False) -> Non
     print("=" * 60)
     result = agent.invoke(
         {"messages": [HumanMessage(content = query)]},
-        config = config,
+        config = config, # type: ignore
     )
     if verbose:
         print("\n--- 完整 message trace ---")

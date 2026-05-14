@@ -1,5 +1,4 @@
 from typing import Annotated, TypedDict
-from huggingface_hub import Agent
 from langgraph.graph.message import add_messages
 from langchain_core.tools import tool
 from langgraph.prebuilt import ToolNode
@@ -9,6 +8,29 @@ from langchain_core.messages import HumanMessage
 from dotenv import load_dotenv
 
 load_dotenv()
+def build_graph():
+
+    llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
+    llm_with_tools = llm.bind_tools([get_processing_time])
+
+    def llm_node(state: AgentState) -> dict:
+        response = llm_with_tools.invoke(state["messages"])
+        return {"messages": [response]}
+
+    tool_node = ToolNode([get_processing_time])
+    graph_builder = StateGraph(AgentState)
+
+    graph_builder.add_node("llm_call", llm_node)
+    graph_builder.add_node("tools", tool_node)
+    graph_builder.add_node("llm_final", llm_node)
+
+    graph_builder.add_edge(START, "llm_call")
+    graph_builder.add_edge("llm_call", "tools")
+    graph_builder.add_edge("tools", "llm_final")
+    graph_builder.add_edge("llm_final", END)
+
+    return graph_builder.compile()
+
 
 class AgentState(TypedDict):
     messages: Annotated[list, add_messages]
@@ -33,33 +55,15 @@ def get_processing_time(visa_type: str) -> str:
             return value
     return "Unknown visa type"
 
-llm = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-llm_with_tools = llm.bind_tools([get_processing_time])
+    
+if __name__ == "__main__":
 
-def llm_node(state: AgentState) -> dict:
-    response = llm_with_tools.invoke(state["messages"])
-    return {"messages": [response]}
+    graph = build_graph()
+    result = graph.invoke({"messages": [HumanMessage("学签需要多久")]})
 
-tool_node = ToolNode([get_processing_time])
-
-graph_builder = StateGraph(AgentState)
-
-graph_builder.add_node("llm_call", llm_node)
-graph_builder.add_node("tools", tool_node)
-graph_builder.add_node("llm_final", llm_node)
-
-graph_builder.add_edge(START, "llm_call")
-graph_builder.add_edge("llm_call", "tools")
-graph_builder.add_edge("tools", "llm_final")
-graph_builder.add_edge("llm_final", END)
-
-graph = graph_builder.compile()
-
-result = graph.invoke({"messages": [HumanMessage("学签需要多久")]})
-
-for msg in result["messages"]:
-    print(f"---{type(msg).__name__}---")
-    print(f"content: {msg.content}")
-    if hasattr(msg, "tool_calls") and msg.tool_calls:
-        print(f"tool_calls: {msg.tool_calls}")
-    print()
+    for msg in result["messages"]:
+        print(f"---{type(msg).__name__}---")
+        print(f"content: {msg.content}")
+        if hasattr(msg, "tool_calls") and msg.tool_calls:
+            print(f"tool_calls: {msg.tool_calls}")
+        print()
