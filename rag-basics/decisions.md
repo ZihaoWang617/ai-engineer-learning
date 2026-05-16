@@ -2,6 +2,10 @@
 
 ## 🔧 Active TODOs
 
+- [ ] **[P2] SqliteSaver migration for HITL** — `agent_graph_hitl.py` 当前用 InMemorySaver，演示不了跨进程 resume。`pip install langgraph-checkpoint-sqlite` + 替换 InMemorySaver → `SqliteSaver(conn)` + 写验证脚本（第一次 invoke 触发 interrupt → 退出 Python 进程 → 重新启动 + Command(resume=...) 用同 thread_id → 成功恢复 final answer）
+- [ ] **[P2] HITL Pattern A → Pattern B refactor** — 把 `submit_application` 内部的 `interrupt()` 抽出来，graph 加独立 `approval_node` + conditional edge 路由 high-stakes tool calls。换来：approval 逻辑集中可配、per-tool approval policy、tool 实现纯净（pure function 不含 control flow）、audit log 易加
+- [ ] **[P3] HITL multi-tool integration** — 当前 `agent_graph_hitl.py` 只 bind submit_application。把它跟 `agent_graph_conditional.py` 的 retrieve_kb_tool / check_processing_time / calculate 合并到一个 graph，验证 multi-iteration + HITL gate 行为（agent 先 retrieve KB context、再 submit_application，只在 submit 阶段 interrupt）
+- [ ] **[P3] HITL FastAPI + Streamlit integration** — 当前 driver 是 console `input()`。production 化：`/ask` endpoint 检测 result 里 `__interrupt__` 字段、返回 `{"status": "pending_approval", "interrupt_data": {...}, "session_id": "..."}`；Streamlit 渲染 approval card；用户点 approve/reject → `/resume` endpoint 用 `Command(resume=...)` + 同 thread_id 继续 graph 直到 final answer
 - [ ] **[P3] File structure consolidation 决策** — 当前双文件并存：`agent_graph_minimal.py`（Day 43 static-edge archive）+ `agent_graph_conditional.py`（Day 44 current canonical）。选项 P 保留（演化痕迹做简历资产）vs 选项 Q 合并为单一 `agent_graph.py`（简洁但丢失演化可见性）。倾向 P，待最终确认后 git rename
 - [ ] **[P1] Tool 覆盖度扩展** — `check_processing_time` 只覆盖 study/work/visitor permit + pr card 四类。未覆盖 BC PNP、OINP、Express Entry、Atlantic、PEQ。KB 有内容但 tool 不知道
 - [ ] **[P1] retrieve_kb_context error message 升级** — 当前直接 expose `str(e)`，无 LLM 指令、无 fallback、可能泄露技术细节。与 `check_processing_time` graceful message 不一致。分层 catch (ConnectionError/TimeoutError + Exception 兜底)，隔离 dev print 和 LLM-facing message
@@ -13,6 +17,13 @@
 
 ## 📐 Architectural Conventions
 
+- **Truthy verification rule**: Python truthy/falsy 行为有疑问立刻 REPL 跑 `bool(...)` 验证；
+  字符串 / config 值的判断**永远 explicit 比较**（`approval == "approve"`），永远不靠 truthy 检查。
+  尤其 `bool("False") == True` 是反直觉陷阱——任何非空字符串都是 truthy。
+- **Import discipline**: 拒绝 IDE auto-import；每个 import 必须 conscious、能 60 秒内说清来源 module 是什么、被 import 的 name 是干什么的；commit 前扫一眼 import block，删 dead imports。
+  Day 45 踩坑：Pylance auto-import 把 `from pydantic import tools` 加进来，导致 `Annotated[tools, add_messages]` 语义完全错乱。
+- **Save-before-run discipline**: terminal 跑 Python 脚本前确认 VS Code tab 没有 ● 未保存标记。
+  "代码看起来对但 output 不对" 99% 是这个。Cmd+S 后再跑。
 - **模块顶层零副作用** —— 顶层只允许 imports、class/function 定义、纯常量赋值。任何执行代码（API call、I/O、print、`graph.invoke()`）包进 `if __name__ == "__main__"` 或函数内部。例外：`load_dotenv()` 顶层 ok（配置加载且必须早于 ChatOpenAI 实例化）
 - **Graph 构建工厂化** —— 复杂 graph 构建逻辑（含 LLM client、ToolNode、StateGraph 组装）封装成 `build_graph()` 工厂函数，return compiled graph。换来 import 安全 + 可独立调用 + 状态隔离
 - **Decision function = 纯观察者** —— Conditional edge 的 routing 函数读 state、返回 string、不改 state。State 变更只在 node 内发生。换来 reasoning + debug 性：每个 state 变化可追溯到具体 node，edge 不背锅
@@ -28,6 +39,25 @@
 
 ## 📜 Decision Log
 
+### Day 45 — 2026-05-15
+
+**HITL implementation via in-tool `interrupt()` (Pattern A) vs independent approval_node (Pattern B)**  
+新 `submit_application` tool 在函数最前一行调 `interrupt({"action", "data_preview", "question"})`，接 user 的 `"approve"`/`"reject"` resume 值走 if/elif/else 分支。备选 Pattern B 用独立 `approval_node` + conditional edge 路由 high-stakes tool calls，graph-native 更适合 production（approval 逻辑集中、per-tool policy 可配、audit log 易加）。选 A 理由：今天 focus 是 `interrupt + Command + checkpointer` 三件套 mental model，不引入 graph 复杂度；A 嵌入式、单工具范围内可读性高。代价：approval 逻辑跟 tool 实现耦合。Day 46 重构候选。
+
+**Checkpointer = InMemorySaver for development; SqliteSaver migration deferred**  
+`builder.compile(checkpointer=InMemorySaver())`。SqliteSaver 需要额外 `pip install langgraph-checkpoint-sqlite` + sqlite3 connection 管理，今天 setup 开销不值；InMemorySaver Day 41 已用过 API 一致。Trade-off：进程退出 state 丢失，演示不了 HITL 的 superpower —— 用户关网页 30 分钟后服务器重启过仍能 resume。Day 46 升级时配验证脚本（第一次跑触发 interrupt → Ctrl+C 退出 Python → 重新跑 Command(resume=...) 用同 thread_id → 成功恢复）。
+
+**should_continue returns `"tools"` / `END` to match conditional edge dict keys (Pattern A)**  
+`return "tools"` / `return END` 匹配 `{"tools": "tools", END: END}`。导师推荐 Pattern B（returns `"use_tools"` / `"finish"`，dict `{"use_tools": "tools", "finish": END}`，把"router signal"跟"node name"语义解耦——前者是 routing 标签、后者是 graph 拓扑）。A 功能等价且代码量少，但 silently 选 A 没 articulate 理由，是 Day 44 zero-violation 续约的边界违反。下次类似 trade-off 必须 explicit 表达"我选 X 因为...."。
+
+**Single-tool graph for HITL learning isolation**  
+`agent_graph_hitl.py` 只 bind `submit_application` 单工具，不引入 `agent_graph_conditional.py` 的 `check_processing_time` / `retrieve_kb_tool` / `calculate`。今天 focus 是 HITL 控制流（interrupt / Command / resume / replay 行为），multi-tool 引入 multi-iteration 验证 noise 干扰单点 mental model 建立。Multi-tool + HITL 组合留 Day 46+。
+
+**Interrupt-first ordering inside tool function (路 A)**  
+`submit_application` 内部第一行就是 `approval = interrupt({...})`，所有 if/elif/else 内的 side effects 放后面。原因：LangGraph resume 时 node function 从头 replay —— interrupt 之前的代码会执行**两次**。如果把 `log_to_db()` 放 interrupt 之前，会写两条 log；把 `call_ircc_api()` 放前面会调两次 IRCC（不可逆灾难）。备选方案"路 B"是让所有副作用 idempotent（用 dedup key），工程复杂度高暂不采用。
+
+**Pydantic auto-import disease**  
+Day 45 踩坑：Pylance auto-import 把 `from pydantic import tools` 加进来，导致 `Annotated[tools, add_messages]` 语义错乱（`tools` 既不是合法类型也跟 `tools = [submit_application]` 后续赋值冲突）。Root cause 是接受 IDE auto-suggest 没 verify 来源 module。已加进 Architectural Conventions 区的 "Import discipline" 规则。
 ### Day 44 — 2026-05-14
 
 **Conditional edge migration (static dual-llm → single llm with routing)**  
