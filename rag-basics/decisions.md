@@ -38,6 +38,30 @@
 ---
 
 ## 📜 Decision Log
+### Day 46 — 2026-05-20
+
+**Agentic RAG: 5-node graph with self-evaluation loop**  
+`agentic_rag.py` 写新 graph：`query_analysis → [needs_retrieval? retrieve : generate]`，`retrieve → self_evaluate → [good? generate : iter<2? retrieve : generate]`。State 6 字段（question / retrieved_docs / answer / evaluation_score / iteration_count / needs_retrieval）。3 测试场景 pass：闲聊（"你好"，iter=0 直奔 generate）、命中（"BC PNP 要求"，1 次 retrieve → good → 详细 answer）、知识库 miss（"ABCXYZ123 移民项目"，retrieve 2 次都 bad → 优雅退出"我没有相关信息"，未编造）。架构差异 vs LangChain AgentExecutor：决策点显式分散到 graph nodes（query_analysis / self_evaluate），不是集中在 ReAct loop 的 LLM 内部 — graph 拓扑本身可审计、可控制流。
+
+**Self-evaluate prompt = 评估 "docs vs question" 不评估 "answer 好不好"**  
+LLM-as-judge 自评偏见：同一 LLM 评估自己产出会系统性偏 good（论文报告 +10-15pp）。Mitigation 四档按强度排序：(1) 评估对象切换为"客观相关性"而非"主观质量"，(2) Structured output 限定 good/bad 单词输出 + 容错先查 bad 后查 good（保守优先），(3) 不同 model 做 evaluation（如 retrieve gpt-4o-mini / eval claude），(4) Embedding similarity 替代 LLM judge。今天做 (1)(2)，(3)(4) 留 ticket → Day 36 RAG evaluation block 做。Default 解析失败 → "bad" 触发重试（fail-safe over fail-loud）。
+
+**iteration_count 计数职责 = retrieve node（不是 self_evaluate）**  
+计数 +1 放在产生检索副作用的 node 而非评估 node。理由：语义清晰（"retrieve 跑几次"= iteration_count 字面值），conditional edge `if iter < 2` 阅读即语义；若放 self_evaluate +1，会导致 retrieve 1 次 → eval 1 次 → count=2 → conditional 误判已重试，**实际只 retrieve 1 次但语义说 2 次**。架构原则 generalized：**state 字段的更新职责绑定到产生该字段对应副作用的 node**。
+
+**Generate node 严格继承 simple RAG 的 "只根据文档" 原则**  
+第一版 prompt 写"如果文档信息不足请基于一般知识回答"——和 simple RAG `langchain_query.py` 的"只根据提供的内容回答，不要编造"矛盾。Agentic RAG 作为 production 系统给同事用，更应严格。改为：保持 system message "只根据文档"，self_evaluate=bad 时（iter 达上限兜底场景）prompt 加 warning 强化"找不到就说找不到"。结果：测试场景 3 "ABCXYZ123" iter=2 退出后回答"我没有相关信息"，无 hallucination。**Production hallucination 是 user-visible failure，cost 是 system-visible failure；前者优先级 >> 后者。**
+
+**State 字段单一职责 — needs_retrieval 不复用**  
+self_evaluate 第一版误把"评估结果"压缩进 `needs_retrieval` 字段（已被 query_analysis 用过）。Refactor 后 self_evaluate 只 return `evaluation_score`，conditional edge 直接读 `evaluation_score` + `iteration_count` 做分支。原则：**每个 state 字段对应一个决策点，不复用**，conditional edge 直接消费多个 state 字段做 routing，不需要预先压缩成一个 boolean。
+
+**Code smell logged：simple RAG retrieval 逻辑重复**  
+`langchain_query.py` 的 `ask()` 和 `retrieve_kb_context()` 都直接写 `rerank_docs(question, hybrid_retriever(question, k=6), top_n=3)`——违反 DRY。Agentic RAG retrieve node 是第 3 处重复。**Decision**：Day 47 之后重构为 `retrieve_with_reranking(question, k=6, top_n=3)` 单一入口函数，三处都调它；改 k/top_n 时只动一处。面试 story：发现 simple RAG 的代码异味，做 Agentic RAG 时顺手清理，体现 production code quality awareness。
+
+**Python 工程基础 bug 集中暴露 — Self-audit habit 强化**  
+今天 5 nodes 共踩 6 类 Python 基础 bug：(1) Dead code（变量计算后未使用）×2 — query_analysis 的 iteration_count 第一次、self_evaluate 的 format_docs；(2) Operator chaining（`content == "yes" in content` 被解释为 `(content == "yes") and ("yes" in content)`）；(3) iteration_count 职责忘记（讲了两遍仍 +1 in self_evaluate）；(4) `is None` vs `not`（truthy/falsy 不一致，None / [] / missing 应该一律走 falsy 分支）；(5) if/else 共享逻辑被困一侧（`llm.invoke` 只在 else 分支，if 分支跑会 NameError）；(6) 凭印象编 LangGraph API（`add_state` / `add_transition` / `graph.run` 均不存在，正确是 `add_node` / `add_edge` / `app.invoke`）。
+**Root cause**：累 + 赶进度时跳过 self-review
+**Mitigation enforced**：每个 node 写完强制 30 秒 checklist —— (a) 所有计算变量都被 return 或使用？(b) return 字段是否只包含本 node 负责的？(c) 老师的问题都回答了？不确定的 API 直接翻已写过的 graph 文件（5 秒搞定）不凭印象编。
 
 ### Day 45 — 2026-05-15
 
