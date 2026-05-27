@@ -1,4 +1,5 @@
 from mcp.server.fastmcp import FastMCP
+import json
 
 mcp = FastMCP("immigration-assistant")
 
@@ -62,6 +63,59 @@ Returns a multi-line string with program details. Raises ValueError if program_c
             f"Available codes: {list(PROGRAMS.keys())}"
         )
     return PROGRAMS[program_code]
+
+@mcp.resource("programs://list")
+def list_programs() -> str:
+    """Returns a json string listing all available immigration programs.
+    USE THIS WHEN:
+    - User asks "What programs are available?"
+    - User asks for a list of programs
+    DO NOT USE WHEN:
+    - User asks about a specific program (e.g., "Tell me about BC PNP Tech")
+    Returns a JSON string with program codes and names."""
+    programs = [
+        {"code": code, "name": content.split("\n")[0]}
+        for code, content in PROGRAMS.items()
+    ]
+    return json.dumps({"programs": programs})
+
+@mcp.prompt()
+def evaluate_case(program_code: str, client_profile: str) -> str:
+    """Generates a structured prompt for evaluating whether a client fits a specific Canadian immigration program.
+
+    USE THIS WHEN:
+    - User provides a client profile and asks to evaluate fit for a specific program
+    - User wants a structured eligibility assessment with reasoning and next steps
+
+    DO NOT USE WHEN:
+    - User asks general questions about immigration not tied to a specific client case
+    - User has not provided any client information
+    - program_code is not in the knowledge base
+
+    Returns a formatted Chinese prompt string. Raises KeyError if program_code unknown."""
+    
+    program_details = PROGRAMS[program_code]
+    
+    return f"""你是资深加拿大移民顾问,拥有多年案例处理经验。你的任务是根据客户档案,评估其是否符合 {program_code} 项目的申请要求。
+
+# 项目要求
+{program_details}
+
+# 客户档案
+{client_profile}
+
+# 输出要求
+请严格按以下结构输出评估结果:
+
+1. **资格初判**:符合 / 不符合 / 信息不足(三选一)
+2. **关键依据**:逐条对照项目要求,引用客户档案中具体内容作为支持
+3. **缺失信息**:如果是"信息不足",列出还需要客户补充哪些信息才能判断
+4. **下一步建议**:基于当前判断,客户应采取的具体行动
+
+# 严格约束
+- 只根据"客户档案"中明确提供的信息判断,不要假设、推测、或补充任何未提供的信息
+- 如某条要求无法从档案中验证,标注为"信息不足",不要凭直觉判断
+- 用专业但客户能理解的语言,避免过度堆砌法律术语"""
 
 
 if __name__ == "__main__":
