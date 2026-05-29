@@ -38,6 +38,59 @@
 ---
 
 ## 📜 Decision Log
+## 5/29 — Day 51: MCP server 升级为 RAG-backed
+
+### Decision 1: 跨目录 import 方案
+- 尝试 editable install (pyproject.toml + pip install -e .)
+- 失败:macOS case-sensitivity 干扰 finder 注册,sys.meta_path 未触发
+- 临时方案:sys.path.insert(0, absolute path),记入 TODO
+- 周日 special block 回头修方案 B (验证 _EditableFinder + 大小写归一化)
+
+### Decision 2: Server tool 设计 (选项 B)
+- 两个 tool: get_immigration_program_summary (结构化) + retrieve_documents (通用)
+- 拒绝设计 A (单一 ask wrapper) — 会绑死 LLM 和 prompt
+- 拒绝设计 C (纯 retrieve, agent 自己 reason) — production 太不可控
+- 选择 B = capability 边界清晰 + production-grade 可预测性
+
+### Decision 3: Reranking 归属 (选项 α)
+- Reranking 留在 server 内,作为 retrieve_documents 的实现细节
+- 拒绝 β (独立 tool) — 把检索内部决策错误暴露给 model
+- 拒绝 γ (client 自己调) — 检索质量应该是 server 责任
+- Punchline: "MCP-native ≠ expose every step. Hide implementation, expose capability."
+
+### Known issue: RAG retrieval quality
+- 3 docs 太少,language requirement query 返回 BC PNP top1
+- 解决: Phase 3 Week 1, Pinecone + 全量 ingest + 更细 chunking
+
+### ask() 函数 deprecation
+- app.py 已切换到 agent + retrieve_kb_context 路径
+- ask() 只剩 langchain_query.py __main__ 块在用 (CLI test)
+- 标记为 deprecated, 未来重构时删除
+## Day 50 — MCP Adapter Integration (2026/5/28)
+
+**Decision**: Use `langchain-mcp-adapters` with `MultiServerMCPClient` (unified client) instead of multiple independent MCP clients.
+
+**Alternatives considered**:
+- 3 个独立 client per server → boilerplate 爆炸,生命周期分散
+- 手写 MCP JSON-RPC 协议 → 重复造轮子,production 太脆
+
+**Why unified client**:
+- Subprocess lifecycle 集中管理
+- Tools 自动 merge 成单一 list,agent 不感知来源
+- Async context 统一,error isolation 在 client 层做
+
+**Trade-offs accepted**:
+- 整条链路必须 async-to-async,sync agent 要重写为 async
+- Tools 启动后是 immutable list,运行时加 server 需要重启 agent
+
+**Production trap discovered**:
+- ToolMessage.content 不是 string,是 list of dict
+  (MCP structured content format: `[{"type": "text", "text": "...", "id": "..."}]`)
+- 下游处理时要解构,不能直接当 str 用
+
+**Cross-folder concern**:
+- Server 在 mcp-learning/,agent 在 rag-basics/,用 absolute path 启动
+- Day 51-58 进 Phase 3 时合并到统一 production repo
 ### Day 46 — 2026-05-20
 
 **Agentic RAG: 5-node graph with self-evaluation loop**  

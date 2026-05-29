@@ -1,0 +1,7 @@
+langchain_ingest.py
+langchain_query.py
+pyproject.toml
+rag_basics.egg-info/PKG-INFO
+rag_basics.egg-info/SOURCES.txt
+rag_basics.egg-info/dependency_links.txt
+rag_basics.egg-info/top_level.txt

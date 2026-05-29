@@ -30,7 +30,7 @@ class AgentState(TypedDict):
 # ─────────────────────────────────────────
 # TODO #1 ─ 填你自己的 absolute path
 # ─────────────────────────────────────────
-SERVER_PATH = os.path.expanduser("~/Desktop/ai-engineer-learning/mcp-learning/server_v2.py")
+SERVER_PATH = os.path.expanduser("~/Desktop/ai-engineer-learning/mcp-learning/server_v3.py")
 
 
 # ─────────────────────────────────────────
