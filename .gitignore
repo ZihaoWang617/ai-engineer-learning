@@ -3,3 +3,9 @@ __pycache__/
 .DS_Store
 history.json
 .env
+
+# Editable install artifacts
+*.egg-info/
+
+# Vector DB binary files (will migrate to Pinecone)
+# Note: existing chroma_db_lc/ stays in repo for current Render deployment

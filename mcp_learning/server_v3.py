@@ -1,10 +1,6 @@
-import sys
-sys.path.insert(0, "/Users/zihao/Desktop/AI-Engineer-learning/rag-basics")
-
 from mcp.server.fastmcp import FastMCP
 import json
-from langchain_query import vectorstore, hybrid_retriever, rerank_docs
-
+from rag_basics.langchain_query import vectorstore, hybrid_retriever, rerank_docs
 mcp = FastMCP("immigration-assistant")
 
 PROGRAMS = {

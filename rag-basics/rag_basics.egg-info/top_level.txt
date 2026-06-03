@@ -1,2 +1,0 @@
-langchain_ingest
-langchain_query
