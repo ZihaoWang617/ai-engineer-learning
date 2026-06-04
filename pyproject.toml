@@ -2,7 +2,37 @@
 name = "ai-engineer-learning"
 version = "0.1.0"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    # Web framework + server
+    "fastapi",
+    "uvicorn",
+    "streamlit",
+    
+    # Data & validation
+    "pydantic",
+    "python-dotenv",
+    "requests",
+    
+    # LLM & retrieval
+    "openai",
+    "chromadb",
+    "cohere",
+    
+    # LangChain ecosystem
+    "langchain",
+    "langchain-core",
+    "langchain-openai",
+    "langchain-chroma",
+    "langchain-community",
+    "langchain-text-splitters",
+    
+    # Agent orchestration
+    "langgraph",
+    
+    # MCP integration
+    "langchain-mcp-adapters",
+    "mcp",
+]
 
 [build-system]
 requires = ["setuptools>=61"]
