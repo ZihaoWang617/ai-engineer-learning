@@ -48,6 +48,43 @@
 
 ## 📜 Decision Log
 
+### 2026-06-10 — Vector store migration: Pinecone Serverless
+
+**Decision**: Migrate from ChromaDB to Pinecone Serverless for production deployment.
+
+**Rationale**:
+- ChromaDB requires local persistent_directory; Render free tier has 
+  ephemeral filesystem → data loss on every cold start
+- Pinecone Serverless: zero-ops, free tier (2GB storage + 1M reads/month) 
+  covers projected usage for 4-10 consultant load
+- langchain-pinecone is first-party LangChain integration → minimal 
+  migration code changes
+- Pinecone has higher recruiter recognition than Qdrant/Weaviate in 
+  Toronto AI job market
+
+**Index spec**:
+- Name: jianuo-dev-v1 (production will be jianuo-prod-v1)
+- Dimension: 1536 (text-embedding-3-small)
+- Metric: cosine (matches OpenAI L2-normalized embeddings; cosine and 
+  dotproduct mathematically equivalent on normalized vectors, but cosine 
+  is the industry-standard default for readability + robustness)
+- Cloud/region: aws/us-east-1 (free tier constraint; ~80ms cross-region 
+  latency from Render acceptable for dev)
+
+**Trade-offs accepted**:
+- Cross-region latency vs zero infra cost
+- Vendor lock-in to Pinecone (mitigated: LangChain abstraction allows 
+  swap to Weaviate/Qdrant later)
+
+**Migration plan (production-grade, for future reference)**:
+1. Dual write (new docs to both v1 and v2)
+2. Backfill historical vectors to v2
+3. Shadow query (compare results without serving to user)
+4. Canary rollout (10% → 25% → 50% → 100%)
+5. Cleanup (stop dual write, delete old index after 1 month)
+
+Not implemented today — current scope is initial Pinecone setup only.
+
 ### 2026-06-03 (Day 54) — 项目工程化重构：散文件 → Proper Python Package
 
 **背景**  
