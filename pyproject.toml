@@ -17,12 +17,14 @@ dependencies = [
     "openai",
     "chromadb",
     "cohere",
+    "pinecone",
     
     # LangChain ecosystem
     "langchain",
     "langchain-core",
     "langchain-openai",
     "langchain-chroma",
+    "langchain-pinecone",
     "langchain-community",
     "langchain-text-splitters",
     
