@@ -3,7 +3,7 @@ import uuid
 import requests
 import os
 
-api = os.getenv("API_URL", "http://127.0.0.1:8000")
+API_URL = os.getenv("API_URL", "http://127.0.0.1:8000")
 st.set_page_config(page_title = "移民咨询助手", layout = "centered")
 st.title("🇨🇦 AI 移民咨询助手")
 
@@ -23,13 +23,21 @@ if prompt := st.chat_input("请输入你的移民问题..."):
         st.markdown(prompt)
     
     with st.spinner("正在获取答案..."):
-        res = requests.post(api + "/ask", json = {
-            "question": prompt, 
+        try:
+            res = requests.post(API_URL + "/ask", json={
+            "question": prompt,
             "session_id": st.session_state.session_id
-})
-        data = res.json()
-        answer = data["answer"]
-        sources = data.get("sources", [])
+            }, timeout=60)
+            res.raise_for_status()  # status_code 非 2xx 抛异常
+            data = res.json()
+            answer = data["answer"]
+            sources = data.get("sources", [])
+        except requests.exceptions.RequestException as e:
+            answer = f"⚠️ 后端服务暂时不可用，可能正在唤醒中（约 30-50 秒）。请稍后重试。\n\n技术细节: {type(e).__name__}"
+            sources = []
+        except (KeyError, ValueError) as e:
+            answer = f"⚠️ 后端返回格式异常。请稍后重试。\n\n技术细节: {type(e).__name__}: {e}"
+            sources = []
 
     response_text = answer
     if sources:
