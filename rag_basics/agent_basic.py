@@ -2,7 +2,7 @@ from langchain_openai import ChatOpenAI
 from langchain.tools import tool
 from langchain_core.messages import HumanMessage
 from langchain.agents import create_agent
-from langchain_query import retrieve_kb_context
+from rag_basics.langchain_query import retrieve_kb_context
 from dotenv import load_dotenv
 
 from langgraph.checkpoint.memory import InMemorySaver

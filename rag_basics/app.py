@@ -1,5 +1,5 @@
 from datetime import datetime
-from agent_basic import agent
+from rag_basics.agent_basic import agent
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from langchain_core.messages import HumanMessage
