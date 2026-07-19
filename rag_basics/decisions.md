@@ -1,5 +1,40 @@
 # RAG 项目技术决策日志
+### 2026-07-09 (Day 57) — 恢复期 Day 2：Audit Day 56 核心概念
 
+**背景**  
+Day 56 完成冷启动恢复（修 2 处裸 import，端到端走通），但只是"跑通了"，
+未验证是否真懂机制。恢复期第 2 天做 audit，为 Day 58 启动 Pinecone 迁移
+建立扎实基线。
+
+**Audit 结果**
+
+Editable install 机制：
+- `pip install -e .` = site-packages 里放 .pth 指针指向源码路径
+- `pip install .` = site-packages 里复制一份 snapshot
+- 前者改代码立刻生效，后者需要重装
+- 裸 import (`from agent_basic import ...`) 依赖当前工作目录 + 启动方式
+  （脚本 vs 模块），fully qualified import (`from rag_basics.agent_basic import ...`)
+  只依赖 package 是否装好——后者是唯一稳定方式
+- uvicorn app:app 把 app 当模块导入，不会自动把脚本目录加进 sys.path，
+  所以裸 import 崩
+
+ChromaDB ephemeral filesystem 问题：
+- ChromaDB 数据 = chroma_db_lc/ 下的 sqlite3 + bin 文件
+- Render 免费 tier container 无 persistent volume，文件系统是临时的
+- Container 停止 → 从 Docker image 重造新 container → 生产环境 ingest
+  的新数据全部丢失，退回 GitHub 上的 snapshot
+- Pinecone 解决方案 = stateful 数据移出 stateless container，通过 API
+  访问云端服务器
+- 追加认识：persistent volume 能解决单实例数据丢失，但解决不了多实例
+  数据不一致；Pinecone 类托管服务的双重价值 = 持久化 + 多实例共享
+
+**状态**  
+40 min 完成两个 audit，头不清醒后主动停止，未继续读 decisions.md 
+和 Pinecone dashboard 检查。恢复期原则：低质量硬撑 < 有效产出后停止。
+
+**下一步 (Day 58)**  
+状态好的时段：读完 decisions.md 复习自己写的架构决策 + 读 anti-patterns.md
++ Pinecone dashboard 检查 jianuo-dev-v1 状态 + 启动写 langchain_ingest_pinecone.py。
 ## 🔧 Active TODOs
 
 ### P0 — 紧急（线上服务挂着）
@@ -130,7 +165,68 @@ Render 上的两个 service（FastAPI + Streamlit）在这次 push 之后会因�
 - 拒绝设计 A (单一 ask wrapper) — 会绑死 LLM 和 prompt
 - 拒绝设计 C (纯 retrieve, agent 自己 reason) — production 太不可控
 - 选择 B = capability 边界清晰 + production-grade 可预测性
+### Day 61 后注：Decision 2 完整 why (Part 1 / 3) — querymap 存在意义之 BM25 层
 
+**如果 LLM 直接把 program_code（如 `"BC_PNP_Tech"`）传给 BM25 会发生什么：**
+
+1. Query token 是 `bc_pnp_tech`（BM25 tokenizer 按空白/标点切分，下划线 `_` 属于 `\w` 不被当作分隔符，整个字符串是一个 token）
+2. 文档端 token 是 `bc`、`pnp`、`provincial`、`nominee`、`program`、`skills`、`immigration`、`stream` 等独立 token（被空格切开、小写化）
+3. 两边 token 集合**没有任何交集**（文档里根本不存在 `bc_pnp_tech` 这个 token，也不存在独立的 `tech` token）
+4. Query 对每一份文档的 BM25 贡献都是 `0`
+5. 所有文档得分为 0 时，BM25 的排序退化成 tie-breaking（按插入顺序或任意顺序），**返回的 top-k 是与 query 语义完全无关的文档**
+6. **失败模式是 silent failure** —— 不报错，返回垃圾
+
+**Punchline**：BM25 是精确 token 匹配，identifier 和自然语言之间没有 token 的桥梁。
+
+**含义**：这一层证明"program_code 直接给 retriever"在 BM25 通道上完全走不通。但 hybrid search 还有 embedding 通道 —— 下一步验证 embedding 通道是否也走不通。
+### Day 61 后注：Decision 2 完整 why (Part 2 / 3) — querymap 存在意义之 Embedding 层
+
+**如果 LLM 直接把 program_code（如 `"BC_PNP_Tech"`）传给 vector retriever 会发生什么：**
+
+1. `text-embedding-3-small`(通用 embedding model)把 `"BC_PNP_Tech"` 编码成 1536 维稠密向量
+2. Embedding model 是通过对比学习(contrastive learning)训练的:训练目标是让"positive pair"(语义相关的句子对)在向量空间里靠近,"negative pair"远离
+3. Embedding 空间的"相似"完全由训练语料里的 positive pair 决定 —— 余弦相似度是训练完之后的测量工具,不是训练目标本身
+4. `"BC_PNP_Tech"` 是 identifier 形式(下划线、无空格),主要出现在代码/config/URL 场景;自然语言段落"BC Provincial Nominee Program..."出现在文档/新闻场景 —— 两者在训练语料里的**分布不同**,共现频率极低
+5. 通用 embedding model 训练时没有大量的"identifier ↔ 自然语言"对齐 pair,模型**没有机会学到它们是同一件事**
+6. 结果:两者在 embedding 空间里余弦相似度**低**,vector search 返回的 top-k 也是与 query 语义无关的文档
+
+**Punchline**:通用 embedding model 训练时就没学到 identifier 和自然语言是一回事 —— 不是"字符表面不像"的问题,是"训练分布不匹配"的问题。
+
+**Side note**:领域专用的 code-aware embedding model(如 CodeBERT、在代码+文档 pair 上专门训练的 model)能处理这种映射,但项目用的是通用 model,这条路走不通。
+
+**含义**:BM25 通道和 embedding 通道**都**证明"program_code 直接给 retriever"走不通。所以 querymap 这个 adapter 层是**必须存在**的 —— 下一步(Part 3)讲这一层的架构意义。
+
+### Day 61 后注：Decision 2 完整 why (Part 3 / 3) — 架构层：两层契约 + adapter
+
+**Part 1、Part 2 已经证明 identifier 直接给 retriever 不行。但为什么架构上要设计 querymap 这个中间层？**
+
+**先看一个"更简单"的方案：直接让 LLM 传自然语言 query，去掉 program_code。**
+
+- Tool input 类型:自由文本(任意字符串)
+- LLM 传"移民无关问题"→ retriever silent failure(返回垃圾,不报错)
+- LLM 传"表述不准确的问题"→ retriever 返回部分相关的文档,但无法验证是否正确
+- 错误处理成本:贵(要用 NLP 判断意图合法性,本身又是一个 NLP 问题)
+
+**对比 program_code 枚举方案:**
+
+- Tool input 类型:枚举(3 个合法值)
+- LLM 传错值 → raise ValueError,明确失败(loud failure)
+- LLM 传对值 → querymap 翻译成自然语言 → retriever 正常工作
+- 错误处理成本:便宜(一行 `if not in dict`)
+
+**Punchline(接口设计哲学)**:program_code + querymap 这个设计,本质上是给 LLM ↔ tool 之间定义了一个严格的、可验证的输入契约(strict, verifiable input contract),把 LLM 的不可靠性和 hallucination 失败模式约束在 tool 边界内 —— 不让不可靠组件的失败污染下游。
+
+**但只有 program_code 约束还不够 —— retriever 那边接不住 identifier(Part 1、Part 2 已证)。所以还需要 querymap。**
+
+**两层契约 + adapter 架构:**
+
+### 拒绝方案 A(单一 ask wrapper)
+
+方案 A:server 只暴露 ask(question) → answer,server 内部完成检索 + 生成。
+
+拒绝理由:
+如果只设计单一的 ask tool,agent 会退化为转发层——它只负责把检索结果原样传出,不对内容做判断。这样一来,文档中本应告知用户、却未被问题字面命中的信息就会被丢弃,造成沉默失败(即 AI 漏掉了内容而用户无法察觉)。方案 B 拆成两层:检索层先返回原始文档片段作为中间产物,再由 LLM 判断其中哪些信息重要并重新组织,最终答案是模型筛选后生成的,而非机械转发。
+以一次真实提问为例:有员工询问 BC PNP 走不通时是否还有其他路径。文档中关于 AIP 的段落本可以解决这个问题,但它并未直接对应问题的字面表述。在方案 A 下,这段内容会被遗漏,而提问的员工无从得知有一个关键方案被漏掉了。在方案 B 下,LLM 拿到完整片段后能自行判断 AIP 与该问题相关,并主动将其纳入回答。
 **Decision 3: Reranking 归属 (选项 α)**
 - Reranking 留在 server 内,作为 retrieve_documents 的实现细节
 - 拒绝 β (独立 tool) — 把检索内部决策错误暴露给 model
