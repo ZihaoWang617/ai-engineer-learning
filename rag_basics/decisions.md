@@ -83,6 +83,27 @@ ChromaDB ephemeral filesystem 问题：
 
 ## 📜 Decision Log
 
+## Day 63-64 (2026/7/19-7/20): Pinecone Cutover 完成
+
+**做了什么**
+- Day 63: 完成 `langchain_ingest_pinecone.py` 和 `langchain_query_pinecone.py`,交互式测试通过
+- Day 64: 改 `agent_basic.py` 一行 import(chroma → pinecone),修 `langchain_query_pinecone.py` 的相对路径为 `Path(__file__).parent / ...`
+- 四层验证通过: agent.__main__ → FastAPI curl → Streamlit UI 全部返回正确 answer + sources
+
+**改动量**
+- `agent_basic.py`: 1 行(import 路径)
+- `langchain_query_pinecone.py`: 2 行(加 pathlib import + 改 TextLoader 路径)
+- `app.py`, `streamlit_app.py`: 未改
+
+**技术债留存(未修)**
+- `langchain_query_pinecone.py` 模块顶层执行 I/O (load + split + BM25 index build) — anti-pattern
+- Pinecone metadata int → float 转换导致 sources 显示为 `第0.0块` — 展示层加 int() cast 即可修
+- Chroma 二进制文件仍在 git working tree,cutover 稳定后需清理
+
+**待验证**
+- 生产 workload 下 pinecone 检索质量 vs chroma(需扩充知识库到 30+ chunks 才有意义)
+- Render 部署下 pinecone-client 冷启动开销
+
 ### 2026-06-10 — Vector store migration: Pinecone Serverless
 
 **Decision**: Migrate from ChromaDB to Pinecone Serverless for production deployment.

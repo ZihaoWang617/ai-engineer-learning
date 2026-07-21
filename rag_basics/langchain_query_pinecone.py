@@ -26,7 +26,8 @@ vectorstore = PineconeVectorStore(
 retriever = vectorstore.as_retriever(search_kwargs={"k":3})
 
 # BM25 从 knowledge_base.txt 重新切分,和 ingest 用同样的 chunking 参数
-kb_loader = TextLoader("knowledge_base.txt")
+KB_PATH = Path(__file__).parent / "knowledge_base.txt"
+kb_loader = TextLoader(str(KB_PATH))
 kb_documents = kb_loader.load()
 kb_splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
 docs_for_bm25 = kb_splitter.split_documents(kb_documents)
@@ -43,12 +44,16 @@ prompt = ChatPromptTemplate.from_messages([
     ("human", "Context: {context}\n\nQuestion: {question}")
 ]
 )
+def _format_chunk_index(raw):
+    if isinstance(raw, (int, float)):
+        return int(raw)
+    return raw
 
 def format_docs(docs):
     parts = []
     for doc in docs:
         source = doc.metadata.get("source", "unknown")
-        chunk_index = doc.metadata.get("chunk_index", "?")
+        chunk_index = _format_chunk_index(doc.metadata.get("chunk_index", "?"))
         parts.append(f"[来源：{source}, 第{chunk_index}块]\n{doc.page_content}")
     return "\n\n".join(parts)
 
@@ -73,7 +78,7 @@ def ask(question: str, session_id: str = "default") -> dict:
         docs = rerank_docs(question, hybrid_retriever(question, k=6), top_n=3)
         context = format_docs(docs)
         source_info = [
-            f"{doc.metadata.get('source', 'unknown')} 第{doc.metadata.get('chunk_index', '?')}块"
+            f"{doc.metadata.get('source', 'unknown')} 第{_format_chunk_index(doc.metadata.get('chunk_index', '?'))}块"
             for doc in docs
         ]
         answer = conversational_chain.invoke({
