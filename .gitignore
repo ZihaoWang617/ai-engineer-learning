@@ -7,5 +7,5 @@ history.json
 # Editable install artifacts
 *.egg-info/
 
-# Vector DB binary files (will migrate to Pinecone)
-# Note: existing chroma_db_lc/ stays in repo for current Render deployment
+# ChromaDB legacy - retired after Pinecone cutover (Day 65)
+rag_basics/chroma_db_lc/
