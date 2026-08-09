@@ -10,7 +10,7 @@ from pathlib import Path
 import os
 
 # Import loaders from ingest module to keep BM25 in sync with Pinecone
-from langchain_ingest_pinecone import load_content_chunks, load_link_chunks
+from rag_basics.langchain_ingest_pinecone import load_content_chunks, load_link_chunks
 
 ENV_PATH = Path(__file__).resolve().parent.parent / ".env"
 load_dotenv(ENV_PATH)

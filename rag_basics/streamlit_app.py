@@ -32,16 +32,25 @@ if prompt := st.chat_input("请输入你的移民问题..."):
             data = res.json()
             answer = data["answer"]
             sources = data.get("sources", [])
+            links = data.get("links", [])
         except requests.exceptions.RequestException as e:
             answer = f"⚠️ 后端服务暂时不可用，可能正在唤醒中（约 30-50 秒）。请稍后重试。\n\n技术细节: {type(e).__name__}"
             sources = []
+            links = []  
         except (KeyError, ValueError) as e:
             answer = f"⚠️ 后端返回格式异常。请稍后重试。\n\n技术细节: {type(e).__name__}: {e}"
             sources = []
+            links = []  
 
     response_text = answer
+
+    if links:
+        response_text += "\n\n**📎 相关资源:**\n" + "\n".join(
+        f"- [{link['title']}]({link['url']})" for link in links
+    )
+
     if sources:
-        response_text += "\n\n**资料来源:**\n" + "\n".join(f"- {s}" for s in sources)
+        response_text += "\n\n**📚 资料来源:**\n" + "\n".join(f"- {s}" for s in sources)
 
     st.session_state.messages.append({"role": "assistant", "content": response_text})
     with st.chat_message("assistant"):

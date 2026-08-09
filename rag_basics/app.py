@@ -1,9 +1,7 @@
 from datetime import datetime
-from rag_basics.agent_basic import agent
+from rag_basics.langchain_query_pinecone import ask
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from langchain_core.messages import HumanMessage
-import re
 
 app = FastAPI()
 
@@ -18,39 +16,18 @@ def read_root():
 @app.post("/ask")
 def answer_question(input: QuestionInput):
     if not input.question.strip():
-        raise HTTPException(status_code = 400, detail = "Question cannot be empty.")
+        raise HTTPException(status_code=400, detail="Question cannot be empty.")
     
     try:
-        result = agent.invoke(
-        {"messages": [HumanMessage(content = input.question)]},
-        config = {"configurable": {"thread_id": input.session_id}}
-        )
-
-        if not result:
-            raise HTTPException(status_code = 500, detail = "Failed to get an answer.")
-        messages = result["messages"]
-        human_idx = None
-        for i in range(len(messages) -1, -1, -1):
-            if messages[i].type == "human":
-                human_idx = i
-                break
-        if human_idx is None:
-            raise HTTPException(status_code = 500, detail = "No human message found in agent result")
-        
-        new_messages = messages[human_idx:]
-
-        answer = new_messages[-1].content
-
-        sources = []
-        for msg in new_messages:
-            if msg.type == "tool":
-                matches = re.findall(r"\[来源：(.+?)\]", msg.content)
-                sources.extend(matches)
-        return {"answer": answer, "sources": sources}
+        result = ask(input.question, session_id=input.session_id)
+        return {
+            "answer": result["answer"],
+            "sources": result["sources"],
+            "links": result["links"],
+        }
     except Exception as e:
-        raise HTTPException(status_code = 500, detail = f"Error processing the question: {str(e)}")    
+        raise HTTPException(status_code=500, detail=f"Error processing the question: {str(e)}")
 
 @app.get("/health")
 def health_check():
     return {"status": "ok", "timestamp": datetime.utcnow().isoformat()}
-
