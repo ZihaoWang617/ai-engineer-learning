@@ -1,15 +1,113 @@
-BC Provincial Nominee Program (BC PNP)
+# 政策更新记录
+## 2025.08.21 — Express Entry 提前体检要求
+凡是通过 Express Entry(联邦快速通道)递交移民申请的申请人,必须在递交申请前提前完成移民体检 IME(Immigration Medical Examination)。
 
-The BC PNP allows British Columbia to nominate foreign workers and international graduates for Canadian permanent residence. Nominees must intend to live and work in BC.
+## 2025.07.29 — 拒签信附加决定备注
+IRCC(Immigration, Refugees and Citizenship Canada,加拿大移民、难民及公民部)开始在部分拒签信中直接附上移民官的决定备注(Decision Notes)。此变化适用于所有签证类别的拒签信,不限于特定项目。
 
-Skills Immigration Stream
-The Skills Immigration stream is for skilled workers and international graduates with the skills, education and work experience to support BC's economy. Applicants must have a job offer from a BC employer. The minimum wage requirement is $25 per hour for most occupations. Applicants must meet the language requirements of the position.
+以往申请人需通过 ATIP(Access to Information and Privacy)申请才能获取签证官备注,这一变化让部分申请人可以直接从拒签信看到拒签原因,方便针对性地准备后续申请或复议。
 
-Express Entry BC Stream
-The Express Entry BC stream targets candidates already in the federal Express Entry pool. Candidates must have a valid Express Entry profile. BC will send invitations to candidates who meet BC's criteria. A provincial nomination adds 600 points to the CRS score in the federal Express Entry system.
+## 2025.03.25 — LMIA 在 Express Entry 加分取消
+IRCC 取消 LMIA(Labour Market Impact Assessment,劳动力市场影响评估)在 Express Entry 中的加分。此前持有 positive LMIA 的申请人可在 CRS(Comprehensive Ranking System)中获得 50 或 200 分加分,此政策取消后不再享有此加分。
 
-International Graduate Stream
-International graduates from eligible Canadian post-secondary institutions may apply. Applicants must have graduated within the past 3 years. A job offer is required in most cases. Graduates from BC institutions are given priority consideration.
+LMIA 作为工签申请依据的功能仍然保留 — 雇主仍可申请 LMIA 支持外籍员工工签,但对 EE 移民打分不再有直接帮助。
 
-Entrepreneur Immigration
-The Entrepreneur Immigration stream is for experienced entrepreneurs who want to establish or purchase a business in BC. Applicants must have a minimum net worth of $600,000 CAD. A minimum investment of $200,000 CAD is required for businesses located outside Metro Vancouver. For businesses in Metro Vancouver, the minimum investment is $400,000 CAD.
+## 2025.01.22 — 硕博 PAL 要求扩大
+IRCC 扩大 PAL(Provincial Attestation Letter,省级证明信)的适用范围。以下情形需要提供 PAL:
+
+- 硕士 / 博士类首次学习签证申请
+- 境内学签续签且更换学校
+- Level of Study 有变化的续签(例如同一学校本升硕)
+
+以下情形不需要 PAL:
+- K12 及以下(小学、初中、高中)学签申请
+
+PAL 是加拿大 2024 年 1 月引入的制度,由学生所在省 / 领地签发,用于配合联邦对学签总量的管控。此次更新前,硕博项目和 Level of Study 变化的续签属于豁免范围,新政策取消了这些豁免。
+
+## 2025.01.21 — 配偶工签 SOWP 担保人资格收紧
+IRCC 收紧配偶开放工签 SOWP(Spousal Open Work Permit)的担保人资格要求。
+
+国际学生担保配偶:
+- 担保人须就读 16 个月或更长的硕士或博士项目
+- 或就读其他特定专业及符合条件的项目
+
+国际工人担保配偶:
+- 担保人工签有效期不少于 16 个月
+- 担保人须从事 TEER 0 或 TEER 1 类职业
+- 或从事 TEER 2 / TEER 3 类中属于劳动力短缺领域 / 政府优先行业的职业(完整职业清单见「配偶工签 TEER 2&3 职业清单」条目)
+
+SOWP 是加拿大让国际学生 / 国际工人配偶合法工作的通道。此次政策收紧是加拿大 2024 年以来削减临时居民数量总体方向的一部分,目标是控制配偶工签发放规模。
+
+## 配偶工签 TEER 2&3 允许职业清单(2025.01.21 起生效)
+以下 TEER 2 和 TEER 3 职业属于加拿大劳动力短缺 / 政府优先行业,担保人从事这些职业时,其配偶可申请 SOWP。清单按 NOC(National Occupational Classification)代码列出。
+
+技术类(TEER 2):
+- 22100 Chemical technologists and technicians
+- 22101 Geological and mineral technologists and technicians
+- 22110 Biological technologists and technicians
+- 22111 Agricultural and fish products inspectors
+- 22112 Forestry technologists and technicians
+- 22113 Conservation and fishery officers
+- 22114 Landscape and horticulture technicians and specialists
+- 22210 Architectural technologists and technicians
+- 22211 Industrial designers
+- 22212 Drafting technologists and technicians
+- 22213 Land survey technologists and technicians
+- 22214 Technical occupations in geomatics and meteorology
+- 22220 Computer network and web technicians
+- 22221 User support technicians
+- 22222 Information systems testing technicians
+- 22230 Non-destructive testers and inspectors
+- 22231 Engineering inspectors and regulatory officers
+- 22232 Occupational health and safety specialists
+- 22233 Construction inspectors
+- 22300 Civil engineering technologists and technicians
+- 22301 Mechanical engineering technologists and technicians
+- 22302 Industrial engineering and manufacturing technologists and technicians
+- 22303 Construction estimators
+- 22310 Electrical and electronics engineering technologists and technicians
+- 22311 Electronic service technicians (household and business equipment)
+- 22312 Industrial instrument technicians and mechanics
+- 22313 Aircraft instrument, electrical and avionics mechanics, technicians and inspectors
+
+医疗类(TEER 2):
+- 32100 Opticians
+- 32101 Licensed practical nurses
+- 32102 Paramedical occupations
+- 32103 Respiratory therapists, clinical perfusionists and cardiopulmonary technologists
+- 32104 Animal health technologists and veterinary technicians
+- 32109 Other technical occupations in therapy and assessment
+- 32110 Denturists
+
+注:以上清单为不完整版本(源文档完整清单请参考 IRCC 官方文件)。此外还有其他行业类别未列出。
+
+
+## 2024.12.23 — 边境工签(Flagpoling)取消
+加拿大边境口岸不再受理任何形式的工作许可和学习许可申请。所谓"边境工签"(俗称 flagpoling)—— 即申请人开车到美加边境后立即调头,在边境口岸办理工签或学签的做法 —— 正式取消。
+
+此政策生效后,境内申请人只能通过 IRCC 在线系统申请工签 / 学签,不能再通过边境口岸即时办理。此变化影响所有工签类别(包括开放工签、封闭工签、PGWP)和所有学签类别。
+
+政策目的是降低边境口岸的行政负担,并配合 IRCC 收紧临时居民入境的整体方向。
+
+## 2024.12.01 — Restoration 政府费上调至 239.75 CAD
+IRCC 上调身份恢复(Restoration)申请的政府费用,新费用为 239.75 CAD。
+
+Restoration 是临时居民身份(学签、工签、访客身份)过期后 90 天内,申请人可以申请恢复合法身份的机制。恢复期间申请人不得工作 / 学习,须等 IRCC 批准恢复后才能继续原有活动。
+
+Restoration 申请费用包含两部分:
+- Restoration 处理费本身
+- 恢复的目标身份对应的申请费(例如恢复学签需再交学签处理费)
+
+此次上调的 239.75 CAD 为 Restoration 处理费本身。
+
+## 2024.11.15 — 转学必须重新申请学签
+国际学生转学(从一所 DLI 转到另一所 DLI)必须重新申请新的学习签证,新学签上会标注新学校的名称。学生必须等待新学签获批后,才能在新学校开始就读。
+
+此前政策:学生转学只需通过 IRCC 在线系统更新 DLI 信息(改 designated learning institution number),无需重新申请学签,新学签仍可继续使用。
+
+新政策的影响:
+- 转学处理时间显著延长(等新学签审批可能需要几周至几个月)
+- 学生在新学签下发前不能在新学校上课,可能错过开学时间
+- 转学动机需在申请中说明,可能面临 IRCC 对转学合理性的审查
+
+DLI(Designated Learning Institution,指定学习机构)是加拿大政府认可的可招收国际学生的学校名单。

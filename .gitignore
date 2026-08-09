@@ -9,3 +9,6 @@ history.json
 
 # ChromaDB legacy - retired after Pinecone cutover (Day 65)
 rag_basics/chroma_db_lc/
+# Editor backups and old versions
+*.bak
+*_old.*
