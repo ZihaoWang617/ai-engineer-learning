@@ -43,3 +43,49 @@ Pinecone cutover 部署 Render 时,连续三次失败:
 
 1. 我要推的这个改动,如果失败,失败点应该在哪个阶段(build / config / runtime)?如果我答不出这个问题,说明我没预测,不要推。
 2. 上次我这么改的时候,是一次就成的吗?如果不是,当时踩的坑现在解决了吗?
+---
+
+## Day 72 (2026-08-11)
+
+### Anti-pattern: 假设 schema 全局一致而不 verify
+
+**触发场景**  
+Day 72 处理 evaluate.py 之前, memory 一直记 "三层元数据 schema (category_l1/l2/l3 + resource_type) 全程强制执行"。跑 dump-all-inventory 才发现: 71 个 link chunk 有完整 9 字段, 7 个 content chunk 只有 4 字段, 差 5 个 category 相关字段。schema 从 Day 60+ 就一直是 drift 状态, 无人 verify。
+
+**根因**  
+"三层元数据 schema 全程强制执行" 是**期望**, 不是**观察**。ingest 代码里 link 和 content 走两个函数 (load_content_chunks / load_link_chunks), 双方独立演化, 没有一个中央 constraint 强制 schema 一致。心理上以为 "我在两处都写了 metadata" == "两处 metadata 结构相同", 实际上没有类型检查 / test 来 enforce。
+
+**下次触发前的自检问题**  
+1. 我说 "KB 有 X 特征", 这是从代码里读出来的 (grep / dump), 还是我记得应该有?
+2. 至少每 2 周跑一次 `list_docs_by_category.py`, dump 出的 category / metadata 结构和上次 dump 一致吗? 如果不一致, 什么时候变的, 为什么变的?
+3. 有没有一个 assertion / test 在 ingest 时强制 content 和 link 的 metadata keys 集合相同? 没有的话, drift 只是时间问题。
+
+---
+
+### Anti-pattern: 只 audit metadata 不 audit page_content
+
+**触发场景**  
+Day 72 修完 metadata schema 后跑 dry-run, 才发现 chunk_size=800 让 content chunk 语义严重污染: chunk_0 是 "EE 提前体检 + 拒签信备注" 两条政策混合, chunk_3/4/5 全是 TEER NOC 代码列表 (纯英文代码 + 职业名, 对任何自然语言 query 都是低 relevance)。修 metadata 花了 20 分钟, 修 chunking 又花了 20 分钟, 本可以一次做完。
+
+**根因**  
+Metadata 是显式字段, 可以直接 assert; page_content 是自由文本, 需要打开每个 chunk 读一遍才能判断语义质量。心理上默认 "chunking 是 splitter 自动的, 应该没问题", 但 splitter 不懂语义, 只按 token 数硬切。fixed-size splitter 对 markdown / 时间线 / 数据表格类内容天然不适配, 但 Day 30-71 从没被系统性 challenge 过。
+
+**下次触发前的自检问题**  
+1. audit KB 要至少 3 层: (1) vector 数量 (2) metadata schema (3) 每个 chunk 的 page_content 独立语义。缺一层, evaluate 数字都不可信。
+2. splitter 配置 (chunk_size / chunk_overlap / separator) 和我的内容结构 (markdown headers / 时间戳 / 数据条目) 有没有明确 alignment? 没有的话, 到 evaluate 阶段就会撞见语义污染。
+3. dry-run 输出的 chunk length 分布如果有异常小值 (200 chars 残片) 或异常大值 (>1500 chars 无法 embedding 有效捕捉), 就是 splitter 不适配的信号。
+
+---
+
+### Anti-pattern: KB 认知盲区 - 数据存在但看不见
+
+**触发场景**  
+Day 72 chunking migration 后 dry-run 输出 10 个 chunk, 我第一次看见 "2024.11.15 — 转学必须重新申请学签" 这条政策。这条政策一直在 knowledge_base.txt 里, 但之前 chunk_size=800 时被埋在某个 chunk 的中间部分, 从 memory 到 Day 71 review 都没意识到 KB 里有这条。这意味着: 从 Day 30 到 Day 71 之间, 只要客户问 "转学要不要重新申请学签", 系统本可以答对但我不知道系统能答对, 也无从设计相关 test case。
+
+**根因**  
+把 "KB 里有多少条内容" 等价于 "我脑子里记得的多少条", 但两者从来不相等。fixed-size chunking 把语义单元 (一条政策) 切散到多个 chunk 中间, 单独看每个 chunk 只能看到部分政策的部分内容, 谁都拼不出全貌 —— 包括开发者自己。开发者以为自己了解 KB, 实际上不了解。
+
+**下次触发前的自检问题**  
+1. 每次 KB 更新后, 必须至少跑一次 dry-run 输出所有 chunk 的 title / 前 200 chars, 当作 KB 内容 self-audit —— 不是为了 debug 系统, 是为了让我自己知道 KB 里到底有什么。
+2. 如果一个 chunk 的 title 是通用词 (如 "IRCC 政策更新时间线"), 说明 metadata 无法帮我识别这个 chunk 的内容 —— 需要更细粒度的 resource_title (如具体政策名称 + 日期)。
+3. 如果 chunking 让一个语义单元被切散, 我永远也不会 "看到" 这个语义单元, 除非某天正好搜到相关 query。**Semantic-aware chunking 不只是检索质量问题, 是开发者对自己 KB 的可见性问题。**

@@ -494,3 +494,38 @@ hardcode `get_processing_time`(4 个 visa 类型 dict),不接 ChromaDB。隔离�
 
 **Path hardening (chroma_db_lc)**  
 模块 load 时 `Path(__file__).parent / "chroma_db_lc"` resolve 绝对路径,替代依赖 cwd 的 `"./chroma_db_lc"`。Root-cause fix。从此 rag-basics 子目录之外启动也能找到 vector store。
+---
+
+<a id="day-72"></a>
+### Day 72 (2026-08-11) — KB 架构统一 + Evaluation Testset
+
+**Content metadata schema 与 link 对齐**  
+Day 72 dump-all-inventory 发现 7 个 content chunk 只有 4 字段 metadata (source/chunk_index/resource_type/resource_url), 71 个 link chunk 有 9 字段。之前 memory 一直以为 "三层元数据 schema 全程强制执行" —— 只对 link 生效,content 完全没跟上。给 content 加 category_l1="政策更新" / category_l2="IRCC 政策时间线" / category_l3="N/A" / resource_id / resource_title, schema 完全对齐。
+
+拒绝方案: 按具体政策细分 category_l2 (chunk 边界不等于政策边界,标注不准) / 复用现有 category_l1 值 (内容本质是时间线, 和主题正交, 复用会造成语义混乱)。
+
+Cost 71 link 重新 embed ~$0.001, 1 min。Scale: 未来加政策沿用此 category_l2 不需要再决策。
+
+面试话术: "KB has two content types: subject-oriented references (link chunks) and time-series policy updates (content chunks). Used orthogonal category dimensions to reflect this — stratified evaluation reports capture both retrieval quality by subject and by content-type independently."
+
+**Chunking 从 fixed-size 迁到 semantic header-based**  
+chunk_size=800 + RecursiveCharacterTextSplitter 有 3 类失败: (1) 语义污染 (一 chunk 覆盖多政策) (2) 无语义数据条目 chunk (NOC 代码列表) (3) KB self-visibility 缺失 —— 短政策被埋在其他 chunk 中间, Day 72 才第一次意识到 KB 里有 "2024.11.15 转学必须重新申请学签" 这条政策。
+
+方案: MarkdownHeaderTextSplitter 按 `##` 政策标题一切, 超过 1200 chars 的 chunk (TEER 清单) 用 RecursiveCharacterTextSplitter 二切 fallback。7 → 10 chunks, 每个 chunk 对应一条完整政策, resource_title 变成具体标题 (如 "2025.08.21 — Express Entry 提前体检要求")。
+
+拒绝方案: 加大 chunk_size 到 1500 (减轻不解决, 政策还是跨 chunk) / 手工 Python 切 (未来加政策要手工维护, 不 scalable, 面试也讲不出好故事)。
+
+Cost: vector storage +40% (可忽略, 免费额度内)。Pinecone total 78 → 81。
+
+面试话术: "Semantic-aware chunking with MarkdownHeaderTextSplitter — my content is naturally organized by ## policy dates. Fixed-size chunking caused three failure modes: semantic pollution, low-signal reference-list chunks, and KB visibility loss where short policies got hidden inside other chunks. Header-based splitting gives one policy per chunk with fine-grained resource_title metadata as a filter axis for stratified evaluation."
+
+**15-query stratified evaluation testset 设计**  
+简历 project bullet 1 要真实 precision 数字, 不能凭 "hybrid + rerank" 三个字过关。15 query, 4 维度 stratified — answer_source (content/link/mixed 各 5) / query_type (specific 9 / vague 6, 反映真实用户 60/40 分布) / locality (single 6 / multi 6 / cross_category 3) / category (top 3 use case: 学签 3 / OINP 3 / 联邦 4 + 政策时间线 2 + long tail 3)。
+
+Ground truth 宽松标 (false negative 更致命,漏标会低估系统)。方案 B ablation 4 config: BM25-only vs dense-only vs hybrid-no-rerank vs hybrid+rerank。
+
+拒绝方案: 2-config baseline vs final (得不到 rerank 独立贡献, 面试问 "rerank 提升多少" 只能答不知道) / 均匀 category 分布 (脱离真实场景, 精心 tuned 数字反而误导)。
+
+Cost: Cohere rerank 15 × $0.002 ≈ $0.03。
+
+面试话术: "I designed my testset based on actual usage patterns at Jianuo, not uniformly across categories — this reflects real deployment: precision@3 in production means precision on queries users actually ask. Ablation over 4 configurations isolates each component's contribution: I can say 'rerank added +X% precision@3 over hybrid-only.'"
