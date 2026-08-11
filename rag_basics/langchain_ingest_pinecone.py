@@ -11,7 +11,7 @@ from dotenv import load_dotenv
 
 from langchain_core.documents import Document
 from langchain_community.document_loaders import TextLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter, MarkdownHeaderTextSplitter
 from langchain_openai import OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
 from pinecone import Pinecone
@@ -26,25 +26,52 @@ CONTENT_FILE = BASE_DIR / "knowledge_base.txt"
 LINKS_FILE = BASE_DIR / "knowledge_base_links.json"
 
 
-# --- Loaders ---
 def load_content_chunks() -> list[Document]:
-    """Load content-type chunks from knowledge_base.txt."""
-    loader = TextLoader(str(CONTENT_FILE))
-    documents = loader.load()
+    """Load content-type chunks from knowledge_base.txt.
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-    chunks = splitter.split_documents(documents)
+    Two-stage splitting:
+    1. Primary: MarkdownHeaderTextSplitter splits by '##' policy headers,
+       giving one policy per chunk for semantic clarity.
+    2. Secondary: RecursiveCharacterTextSplitter splits any chunk exceeding
+       1200 chars (e.g. the TEER reference list) while preserving policy_title
+       metadata across sub-chunks.
+    """
+    raw_text = CONTENT_FILE.read_text(encoding="utf-8")
 
-    for i, chunk in enumerate(chunks):
+    header_splitter = MarkdownHeaderTextSplitter(
+        headers_to_split_on=[("##", "policy_title")],
+        strip_headers=False,
+    )
+    header_chunks = header_splitter.split_text(raw_text)
+
+    fallback_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1200, chunk_overlap=100
+    )
+
+    final_chunks: list[Document] = []
+    for doc in header_chunks:
+        if len(doc.page_content) <= 1200:
+            final_chunks.append(doc)
+        else:
+            sub_docs = fallback_splitter.split_documents([doc])
+            final_chunks.extend(sub_docs)
+
+    for i, chunk in enumerate(final_chunks):
+        policy_title = chunk.metadata.get("policy_title", "unknown")
         chunk.metadata = {
             "source": "knowledge_base.txt",
             "chunk_index": i,
             "resource_type": "content",
-            "resource_url": "",  # Pinecone doesn't accept None in metadata
+            "resource_url": "",
+            "resource_id": f"policy_update_chunk_{i}",
+            "resource_title": policy_title,
+            "category_l1": "政策更新",
+            "category_l2": "IRCC 政策时间线",
+            "category_l3": "N/A",
         }
 
-    print(f"[content] Loaded {len(chunks)} chunks from {CONTENT_FILE.name}")
-    return chunks
+    print(f"[content] Loaded {len(final_chunks)} chunks from {CONTENT_FILE.name} (header-based)")
+    return final_chunks
 
 
 def load_link_chunks() -> list[Document]:

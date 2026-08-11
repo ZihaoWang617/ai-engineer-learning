@@ -12,3 +12,4 @@ rag_basics/chroma_db_lc/
 # Editor backups and old versions
 *.bak
 *_old.*
+rag_basics/eval_category_index.txt
