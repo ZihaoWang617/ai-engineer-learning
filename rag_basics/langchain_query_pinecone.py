@@ -131,6 +131,62 @@ def hybrid_retriever(question: str, k: int) -> list:
     return combined[:k]
 
 
+def retrieve(
+    query: str,
+    use_bm25: bool = True,
+    use_dense: bool = True,
+    use_rerank: bool = True,
+    top_k: int = 3,
+) -> list:
+    """Unified retrieval interface for production + ablation eval.
+    
+    Args:
+        query: Search query string.
+        use_bm25: Include BM25 lexical retrieval.
+        use_dense: Include Pinecone dense retrieval.
+        use_rerank: Apply Cohere cross-encoder rerank as final stage.
+        top_k: Number of docs to return.
+    
+    Returns:
+        List of Document objects ordered by relevance, len <= top_k.
+    """
+    # Validate: at least one retrieval strategy must be enabled
+    if not (use_bm25 or use_dense):
+        raise ValueError("At least one retrieval strategy (BM25 or dense) must be enabled.")
+    
+    # Determine intermediate k (before rerank)
+    # 如果要 rerank, 粗排层多召回一些 (6 个) 给 rerank 挑; 否则直接要 top_k
+    intermediate_k = 6 if use_rerank else top_k
+    
+    # Reset BM25 k to default before branching (avoid stale state from prior calls)
+    # Reset shared retriever state before branching (avoid stale k from prior calls).
+    # NOTE: mutating shared singleton attrs is not ideal — tech debt to refactor
+    # to per-call similarity_search() bypassing retrievers.
+    bm25_retriever.k = 3
+    semantic_retriever.search_kwargs["k"] = 3
+
+    # Branch 1: hybrid (both BM25 and dense)
+    if use_bm25 and use_dense:
+        docs = hybrid_retriever(query, intermediate_k)
+    
+    # Branch 2: BM25 only
+    elif use_bm25 and not use_dense:
+        bm25_retriever.k = intermediate_k
+        docs = bm25_retriever.invoke(query)
+    
+    # Branch 3: dense only
+    elif use_dense and not use_bm25:
+        semantic_retriever.search_kwargs["k"] = intermediate_k
+        docs = semantic_retriever.invoke(query)
+    
+    # Rerank stage (optional)
+    if use_rerank:
+        docs = rerank_docs(query, docs, top_n=top_k)  # 替换这行
+    else:
+        docs = docs[:top_k]  # 替换这行
+    
+    return docs
+
 def rerank_docs(question: str, docs: list, top_n: int = 3) -> list:
     if not docs:
         return []
@@ -199,7 +255,7 @@ def ask(question: str, session_id: str = "default") -> dict:
         retrieval_query = rewrite_query_for_retrieval(question, history)
         
         # Use rewritten query for retrieval; original question for answer generation
-        docs = rerank_docs(retrieval_query, hybrid_retriever(retrieval_query, k=6), top_n=3)
+        docs = retrieve(retrieval_query)  # 或 retrieve(question), 保持原变量名
         context = format_docs(docs)
 
         # Invoke chain with explicit chat_history
