@@ -4,6 +4,34 @@ Purpose: Pre-interview / pre-status-update self-check.
 Read this file before every: face-to-face conversation, LinkedIn post, recruiter reply, mock interview.
 
 ---
+## BM25 对中文 query 失效 (default whitespace tokenizer)
+
+**Anti-pattern**: BM25Retriever.from_documents 使用默认 tokenizer (按空白/标点切分), 中文 query 整个变成 1 个 token, 与 doc 无 token 匹配, 全库 score 为 0, 排序退化成插入顺序。
+
+**为什么问题**: Ablation Config 1 (BM25 only) 三个语义完全不同的 query 返回完全一致的 3 个 doc。生产 hybrid 里 BM25 那一路是装饰品, 实际检索完全靠 dense + rerank。
+
+**当前状态**: 保留代码不动, 生产依赖 dense + rerank 兜底, BM25 结果被 rerank 打分低刷掉。
+
+**长期修复**: Day 74+ 集成 jieba 中文 tokenizer, 用 `BM25Retriever.from_documents(..., preprocess_func=jieba_tokenize)`. 修复后需要重跑 ablation 才能声称 hybrid 有效。
+
+**Interview articulation**: "Ablation 暴露了中文 BM25 tokenizer 失效, 生产系统实际靠 dense embedding + cross-encoder rerank 两段式撑住. BM25 集成中文分词器归为 tech debt."
+
+## Hybrid merge 用 union + dedup 而非 RRF, semantic 因 list 拼接顺序隐式优先
+
+**Anti-pattern**: Hybrid retrieval 合并层用 `semantic_docs + bm25_docs` 拼接后按 `page_content` 去重, 不是 RRF 等显式分数融合策略, 导致 semantic 结果因 Python list 拼接顺序被隐式排在 BM25 之前。
+
+**为什么是问题**:
+- 生产环境有 Cohere rerank 作为 Layer 3, 重新打分排序抹掉输入顺序偏差, 体感无问题
+- Rerank 关闭时 (evaluate.py Config 3 消融) semantic 获得不公平位次优势, 数字失真
+- 面试若答 "hybrid merge 用 RRF" 是错的; 准确答法: "union + dedup, semantic biased first by list order"
+
+**Replacement rule**:
+- 描述架构: 说 "union + dedup, semantic biased first", 不说 RRF
+- 消融实验解读: Config 3 数字要**打折解读**, semantic 贡献被高估, 不能直接用 Config 3 - Config 1 得出 "semantic 比 BM25 强 X%" 的结论
+- 长期修复: 改成 rank-based RRF (`score = Σ 1/(k + rank_i)`, 常用 k=60), 归为 tech debt Day 74+ 处理
+
+**Specific instance**: Day 73 (2026/8/12) 准备跑 evaluate.py 消融实验前, 通过 `grep BM25` 回顾 `hybrid_retriever` 实现, 发现代码是 `for doc in semantic_docs + bm25_docs` 后按 `page_content` 去重, 不是 RRF。之前 Day 35 记忆里 "RRF 合并原理" 是概念学习, 不代表实际实现。这个 gap 直到消融实验才暴露。
+
 
 ## Day 45 (2026/05/15) — Python truthy verification (Valid Sudoku HITL approval flow)
 
