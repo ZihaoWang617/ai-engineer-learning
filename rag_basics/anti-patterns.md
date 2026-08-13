@@ -89,3 +89,66 @@ Day 72 chunking migration 后 dry-run 输出 10 个 chunk, 我第一次看见 "2
 1. 每次 KB 更新后, 必须至少跑一次 dry-run 输出所有 chunk 的 title / 前 200 chars, 当作 KB 内容 self-audit —— 不是为了 debug 系统, 是为了让我自己知道 KB 里到底有什么。
 2. 如果一个 chunk 的 title 是通用词 (如 "IRCC 政策更新时间线"), 说明 metadata 无法帮我识别这个 chunk 的内容 —— 需要更细粒度的 resource_title (如具体政策名称 + 日期)。
 3. 如果 chunking 让一个语义单元被切散, 我永远也不会 "看到" 这个语义单元, 除非某天正好搜到相关 query。**Semantic-aware chunking 不只是检索质量问题, 是开发者对自己 KB 的可见性问题。**
+
+---
+
+## Day 73 (2026-08-12)
+
+### Anti-pattern: Hybrid merge 用 union + dedup 而非 RRF, semantic 因 list 拼接顺序隐式优先
+
+**触发场景**  
+Day 73 抽 retrieve() 之前, 通过 `grep BM25` 回顾 `hybrid_retriever` 实现, 发现代码是 `for doc in semantic_docs + bm25_docs` 后按 `page_content` 去重, 不是 memory 里记的 RRF (Day 35 "RRF 合并原理" 是概念学习, 从没落地)。生产环境 Cohere rerank 抹掉了输入顺序偏差, 所以体感无问题, 但 Config 3 (hybrid no rerank) 会让 semantic 获得不公平位次优势。
+
+**根因**  
+"我学过 RRF" ≠ "我实现了 RRF"。Day 35 学 RRF 时是概念探讨, 但当时代码用 union-dedup 图快, 之后 memory 慢慢从 "实现了 union-dedup" 漂移成 "实现了 RRF"。没有一次实际打开代码 verify 实现方式和 memory 一致。silent drift 只有做 ablation 时才暴露。
+
+**下次触发前的自检问题**  
+1. 我说 "生产系统用了 X 策略", 这是我记得的还是我刚看过代码的? 如果超过 2 周没打开代码 verify, 默认 memory 已经 drift。
+2. 面试前把系统架构自述 vs 代码实现做一次对齐 audit, 找出所有 "以为实现了但没实现" 的项。
+3. Config 3 数字要**打折解读**, semantic 贡献被高估, 不能直接用 Config 3 - Config 1 得出 "semantic 比 BM25 强 X%" 结论。
+
+**长期修复**: rank-based RRF (`score = Σ 1/(k + rank_i)`, k=60), tech debt Day 74+。
+
+---
+
+### Anti-pattern: 共享 retriever 单例被临时修改属性
+
+**触发场景**  
+Day 73 抽 retrieve() 时, dense-only 分支需要 `semantic_retriever.search_kwargs["k"] = intermediate_k`, 但 `semantic_retriever` 是模块顶层单例, 被多个函数共享。改完不还原, 下次调用 hybrid 分支时用的还是被污染的 k。BM25 同理。
+
+**根因**  
+模块顶层单例是**只读的心理暗示**, 但 Python 里 dict / attribute 全是可变的。retrieve() 内部临时改共享单例属性是 "省事", 但引入跨调用状态泄漏风险。
+
+**当前 mitigation**: 每次分支前重置到默认值 (`bm25_retriever.k = 3`, `semantic_retriever.search_kwargs["k"] = 3`)。
+
+**下次触发前的自检问题**  
+1. 我要改的对象是模块顶层单例吗? 如果是, 改动会不会影响其他调用者?
+2. 有没有更干净的替代 —— 每次调用创建新对象, 或者直接绕过共享层调更底层 API?
+
+**长期修复**: retrieve() 内改用 `vectorstore.similarity_search(query, k=...)` 和 `BM25Okapi` 直接接口, 绕过共享 retriever, tech debt Day 74+。
+
+---
+
+### Anti-pattern: BM25 default whitespace tokenizer 对中文和混合术语 query 部分失效
+
+**触发场景**  
+Day 73 verify_retrieve.py 输出显示: 3 个语义完全不同的中文 query ("学签怎么办" / "BC PNP 分数" / "父母团聚担保要求") 在 Config 1 (BM25 only) 下返回**完全一致的 3 个 doc**。追加英文 identifier query ("OINP") 测试, 返回正确的 OINP 相关 doc。
+
+**Anti-pattern**: BM25Retriever.from_documents 默认 tokenizer 按空白/标点切分:
+- 纯英文 identifier (OINP, IRCC): ✅ 工作正常
+- 混合术语 (BC PNP): ⚠️ 依赖 KB 术语拼写一致性, 拼写不统一时命中率低  
+- 纯中文 query (学签怎么办): ❌ 整个 query 变 1 个 token, 除非 doc 逐字含该子串否则 score 为 0
+
+**为什么是问题**: 生产 KB 中文为主, BM25 对约 90% query silent failure, 排序退化成插入顺序返回 corpus 前 N 个 doc。生产表现 OK 因为 rerank 层兜底, 但 ablation 数字里 Config 1 接近随机基线。**这是 silent failure —— 没有 alarm, 只有做 ablation 才发现**。
+
+**当前状态**: 不修。生产依赖 dense + rerank two-stage, BM25 结果被 rerank 打分低刷掉。
+
+**下次触发前的自检问题**  
+1. 我用的第三方库默认配置是不是为我的场景优化的? tokenizer / analyzer 类的配置默认往往是英文 assumption。
+2. 系统的 "hybrid" / "ensemble" 声明背后, 每一路是不是都在真正 contribute? 有没有做过独立 ablation?
+
+**长期修复 (Day 74+)**: 两条路径任选或并行
+1. jieba 中文分词: `BM25Retriever.from_documents(..., preprocess_func=jieba_tokenize)`
+2. KB 术语标准化: 建立术语表, ingest 时统一拼写 (BC PNP / BC省提名 / BC Provincial Nominee → 统一)
+
+**Interview articulation**: "Ablation 暴露 BM25 tokenizer 对中文 silent failure, 生产实际靠 dense + rerank two-stage. 修复归为 tech debt, 因为 8 月投递前引入新变量会破坏 evaluation attribution."
