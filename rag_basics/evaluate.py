@@ -254,3 +254,137 @@ def precision_at_k(retrieved_ids: list[str], relevant_ids: set[str], k: int = 3)
 # - retrieve_config4_hybrid_rerank (current production, reuse existing code)
 # - run_evaluation()
 # - report() with stratified breakdown by meta dimensions
+# ============ Config definitions ============
+
+from rag_basics.langchain_query_pinecone import retrieve
+
+CONFIGS = [
+    ("Config 1: BM25 only",         dict(use_bm25=True,  use_dense=False, use_rerank=False)),
+    ("Config 2: Dense only",        dict(use_bm25=False, use_dense=True,  use_rerank=False)),
+    ("Config 3: Hybrid no rerank",  dict(use_bm25=True,  use_dense=True,  use_rerank=False)),
+    ("Config 4: Hybrid + rerank",   dict(use_bm25=True,  use_dense=True,  use_rerank=True)),
+]
+
+
+# ============ Evaluation ============
+
+def run_evaluation() -> list[dict]:
+    """Run 15 queries × 4 configs. Return flat list of result records."""
+    results = []
+    for item in TESTSET:
+        query = item["query"]
+        query_id = item["id"]
+        relevant = item["relevant_doc_ids"]
+        meta = item["meta"]
+        
+        for config_name, config_kwargs in CONFIGS:
+            # TODO 1: 调 retrieve(query, **config_kwargs) 得到 docs
+            docs = retrieve(query, **config_kwargs)
+            # TODO 2: 提取 resource_id list (list of str)
+            retrieved_ids = [doc.metadata["resource_id"] for doc in docs]
+            # TODO 3: 算 precision@3
+            p_at_3 = precision_at_k(retrieved_ids, relevant, k=3)
+            
+            results.append({
+                "query_id": query_id,
+                "query": query,
+                "config": config_name,
+                "retrieved_ids": retrieved_ids,
+                "p_at_3": p_at_3,
+                # Include meta for stratification later
+                "answer_source": meta["answer_source"],
+                "query_type": meta["query_type"],
+                "locality": meta["locality"],
+                "category": meta["category"],
+            })
+    
+    return results
+
+from pathlib import Path
+
+def save_results_to_csv(results: list[dict], path: str | None = None) -> None:
+    """Save flat results list to CSV for stratified analysis."""
+    import csv
+    
+    if path is None:
+        path = Path(__file__).parent / "eval_results.csv"
+    
+    rows_for_csv = [
+        {**r, "retrieved_ids": "|".join(r["retrieved_ids"])}
+        for r in results
+    ]
+    fieldnames = list(rows_for_csv[0].keys())
+    
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows_for_csv)
+    
+    print(f"Saved {len(rows_for_csv)} rows to {path}")
+
+
+
+def report_stratified(results: list[dict]) -> None:
+    """Stratified precision@3 breakdown by label dimensions."""
+    import pandas as pd
+    
+    df = pd.DataFrame(results)
+    
+    print("\n=== Stratified by answer_source ===")
+    # TODO 1: groupby ['config', 'answer_source'] -> mean p_at_3 -> unstack
+    print(df.groupby(['config', 'answer_source'])['p_at_3'].mean().unstack().fillna(0).round(3).to_string())
+    
+    print("\n=== Stratified by query_type ===")
+    # TODO 2: same pattern
+    print(df.groupby(['config', 'query_type'])['p_at_3'].mean().unstack().fillna(0).round(3).to_string())
+    
+    print("\n=== Stratified by locality ===")
+    # TODO 3: same pattern
+    print(df.groupby(['config', 'locality'])['p_at_3'].mean().unstack().fillna(0).round(3).to_string())
+
+# ============ Reporting ============
+
+def report_overall(results: list[dict]) -> None:
+    """Print mean precision@3 per config, overall."""
+    from collections import defaultdict
+    per_config = defaultdict(list)
+    for r in results:
+        per_config[r["config"]].append(r["p_at_3"])
+    
+    print("\n=== Overall precision@3 ===")
+    for config_name in [c[0] for c in CONFIGS]:
+        scores = per_config[config_name]
+        mean = sum(scores) / len(scores)
+        print(f"  {config_name}: {mean:.3f}  (n={len(scores)})")
+
+def report_per_query(results):
+    """Print p@3 per query, one row per query, one col per config."""
+    from collections import defaultdict
+    per_query = defaultdict(dict)
+    for r in results:
+        per_query[r["query_id"]][r["config"]] = r["p_at_3"]
+    
+    print("\n=== Per-query precision@3 ===")
+    config_names = [c[0] for c in CONFIGS]
+    print(f"{'qid':>4} " + " ".join(f"{c.split(':')[0]:>10}" for c in config_names))
+    for qid in sorted(per_query.keys()):
+        row = per_query[qid]
+        print(f"{qid:>4} " + " ".join(f"{row[c]:>10.3f}" for c in config_names))
+
+
+def report_sample_details(results, sample_qid=1):
+    """Print retrieved_ids for 1 sample query across all configs."""
+    print(f"\n=== Sample query {sample_qid} retrieved_ids ===")
+    for r in results:
+        if r["query_id"] == sample_qid:
+            print(f"  {r['config']}: {r['retrieved_ids']}  (p@3={r['p_at_3']:.3f})")
+
+# ============ Main ============
+
+if __name__ == "__main__":
+    results = run_evaluation()
+    report_overall(results)
+    report_per_query(results)
+    report_sample_details(results, sample_qid=1)
+    report_stratified(results)
+    save_results_to_csv(results)

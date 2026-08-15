@@ -13,3 +13,4 @@ rag_basics/chroma_db_lc/
 *.bak
 *_old.*
 rag_basics/eval_category_index.txt
+rag_basics/eval_results.csv

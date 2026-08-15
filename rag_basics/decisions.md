@@ -529,3 +529,26 @@ Ground truth 宽松标 (false negative 更致命,漏标会低估系统)。方案
 Cost: Cohere rerank 15 × $0.002 ≈ $0.03。
 
 面试话术: "I designed my testset based on actual usage patterns at Jianuo, not uniformly across categories — this reflects real deployment: precision@3 in production means precision on queries users actually ask. Ablation over 4 configurations isolates each component's contribution: I can say 'rerank added +X% precision@3 over hybrid-only.'"
+
+## Rerank Retention Decision (Day 74, 2026-08-14)
+
+**Context**: 4-config × 15-query ablation (precision@3) revealed rerank aggregate contribution = 0.
+- Config 2 (Dense only): 0.533
+- Config 4 (Hybrid + rerank): 0.533
+
+**Eliminated problem**:
+- On multi-locality queries: rerank +4.8% (0.571 → 0.619)
+- Prevents future regression as KB grows beyond ~200 vectors (rerank value scales with candidate pool size)
+
+**Introduced cost**:
+- +200-300ms latency per query (Cohere API roundtrip)
+- Cohere API cost (~$0.001 per 100 queries at rerank-v3.5 pricing)
+- **Cross-category query regression: -20% (0.833 → 0.667)** — root cause hypothesis: Cohere training data skews English single-intent, reordering hurts zh-CN cross-domain semantic composition
+
+**Scale breakpoint hypothesis**:
+- Current 81 vectors: rerank aggregate neutral
+- ~200 vectors: expected aggregate positive (candidate pool expands, dense recall drops)
+- ~500 vectors: rerank becomes essential (dense precision@6 degrades)
+- Trigger for re-evaluation: KB reaches 200 vectors OR per-slice regression exceeds 30%
+
+**Decision**: Retain rerank in production. Future work: add cross_category query type flag to route around rerank for high-risk queries.
