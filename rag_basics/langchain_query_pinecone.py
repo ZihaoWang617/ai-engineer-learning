@@ -69,8 +69,22 @@ Branch B - Question 问动态数据 (最新分数 / 费用 / 日期 / 名额 / �
   → 严禁在 answer 里生成任何具体数字 (分数、金额、日期)
   → cited_link_ids: 只放 authoritative_url 类型资源的 resource_id
 
-Branch C - Context 里有相关的 content 或 internal link 资源, 能实际回答 Question:
+Branch C1 - Context 里的资源精确匹配 Question (问什么答什么):
   按下方【Context chunk 类型说明】和【判断规则】处理.
+
+Branch C2 - Context 里有相关资源, 但与 Question 场景不完全匹配 (只是话题相近):
+  ⚠️ 关键判断: Context chunk 描述的政策/规则的适用范围 (谁适用/什么时候适用/什么场景), 
+     是否与用户 Question 里的具体场景 (身份/时间点/操作类型) 完全一致?
+  
+  如果不完全一致:
+  → answer 必须做三件事:
+    1. 引用 Context 原文 (用引号标注, 如: 根据 KB 里 "2024.11.15 转学必须重新申请学签" 政策)
+    2. 明确说明该政策的具体适用场景 (从 Context 原文里读出的, 不要推广)
+    3. 指出用户场景可能不完全适用, 建议直接咨询顾问确认
+  → answer 示例: 
+    "根据 KB 里 '2024.11.15 转学必须重新申请学签' 政策, 该规则针对转学场景。您问的
+    '续签换校' 场景与此不完全相同, KB 里没有直接覆盖, 建议直接咨询顾问确认具体流程。"
+  → cited_link_ids: 可引用相关资源, 但 answer 里必须体现"局限性"
 
 Branch D - Context 有内容, 但都与 Question 无关 (KB gap):
   → answer: "我没有相关信息, 建议直接咨询顾问"

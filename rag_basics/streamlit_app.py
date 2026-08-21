@@ -49,7 +49,7 @@ if prompt := st.chat_input("请输入你的移民问题..."):
         f"- [{link['title']}]({link['url']})" for link in links
     )
 
-    if sources:
+    if sources and links:
         response_text += "\n\n**📚 资料来源:**\n" + "\n".join(f"- {s}" for s in sources)
 
     st.session_state.messages.append({"role": "assistant", "content": response_text})
