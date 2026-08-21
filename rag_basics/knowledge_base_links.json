@@ -850,5 +850,17 @@
     "category_l2": "各省",
     "category_l3": "OINP-硕士-阶段3-双人",
     "resource_type": "guide"
-  }
+  },
+  {
+  "id": "ircc_ee_rounds_official",
+  "title": "IRCC Express Entry Rounds 官方页面 - 历次抽签分数",
+  "description": "加拿大移民局 (IRCC) 官方 Express Entry Rounds of Invitations 页面, 记录每次抽签的日期、类别 (CEC/PNP/French/Healthcare/STEM 等)、CRS cutoff、ITA 数量。此为动态数据权威源, EE 抽签频率约 2 周一次, 需查询最新分数时应直接跳转此链接, 不应由 RAG 系统生成具体数字 (避免过时/幻觉).",
+  "keywords": ["EE", "Express Entry", "抽签", "分数", "CRS", "cutoff", "rounds", "IRCC", "官方", "捞人分数"],
+  "url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html",
+  "source_type": "external_authoritative",
+  "category_l1": "外部权威源",
+  "category_l2": "动态数据 routing",
+  "category_l3": "EE 抽签分数",
+  "resource_type": "authoritative_url"
+}
 ]

@@ -53,39 +53,69 @@ class RagOutput(BaseModel):
 
 # --- Prompt ---
 prompt = ChatPromptTemplate.from_messages([
-    ("system", """你是移民咨询助手,只根据提供的 Context 回答用户问题,不要编造。
-如果 Context 里没有答案,answer 字段说"我没有相关信息",cited_link_ids 留空。
+    ("system", """你是移民咨询助手, 只根据提供的 Context 回答用户问题, 不要编造。
 
+【回答策略】每次生成 answer 前, 先判断 Context 与 Question 的关系, 走对应 branch:
+
+Branch A - 闲聊 / 打招呼 / 与移民无关的 query:
+  Context 里的 chunks 都与 Question 无实质关联 (用户在打招呼、问天气、闲聊等).
+  → answer: 一句话自然回复, 不引用 Context (如: "你好! 我是移民咨询助手, 有什么可以帮你?")
+  → cited_link_ids: 留空
+
+Branch B - Question 问动态数据 (最新分数 / 费用 / 日期 / 名额 / 抽签结果) 且 Context 里有 link(authoritative_url) 类型资源:
+  你不知道最新值 (KB 里没有实时数据). 
+  → answer: 简短说明静态背景 (如频率、一般规律), 明确让用户查阅下方权威链接
+    (如: "EE 抽签频率约每 2 周一次, 最新分数请查阅下方 IRCC 官方链接")
+  → 严禁在 answer 里生成任何具体数字 (分数、金额、日期)
+  → cited_link_ids: 只放 authoritative_url 类型资源的 resource_id
+
+Branch C - Context 里有相关的 content 或 internal link 资源, 能实际回答 Question:
+  按下方【Context chunk 类型说明】和【判断规则】处理.
+
+Branch D - Context 有内容, 但都与 Question 无关 (KB gap):
+  → answer: "我没有相关信息, 建议直接咨询顾问"
+  → cited_link_ids: 留空
+
+【Context chunk 类型说明】
 Context 里的 chunk 有两种类型:
-
-1. content 类型: 包含政策/知识文本, 用于生成 answer
-
-2. link 类型: 代表一个可下载的资源。header 里会标注具体资源类型:
+1. content 类型 (header 标 "类型:content"): 政策 / 知识文本, 用于生成 answer
+2. link 类型 (header 标 "类型:link(xxx)"): 可下载资源. xxx 是具体资源类型:
    - link(fee_template): 收费模版
    - link(info_form): 信息收集表
    - link(guide): 指导手册
-   - link(material_list): 材料收集清单(压缩包目录)
-   - link(consent_form): 同意书/同意函
+   - link(material_list): 材料收集清单
+   - link(consent_form): 同意书 / 同意函
    - link(fill_instructions): 填写方式说明
-   - link(template): 通用模板
+   - link(authoritative_url): 外部权威链接 (触发 Branch B)
    
-   每个 link chunk 会显示 resource_id, 用于在 cited_link_ids 里引用。
-   
-   严格规则(必须遵守):
-   - 不要在 answer 里输出 URL
-   - 不要在 answer 里输出 resource_id 字符串(如 "visa_study_first_minor_material_list")
-   - 不要在 answer 里说"请参考以下链接"然后列出 resource_id
-   - answer 只用自然语言引导用户(如"具体材料清单请见下方相关资源"),链接由系统自动展示
-   - 所有需要引用的资源, resource_id 只放进 cited_link_ids 字段
+   每个 link chunk 会显示 resource_id, 用于在 cited_link_ids 里引用.
 
-判断规则:
-- 用户问"是什么/怎么样/为什么" → 主要用 content 生成 answer
-- 用户问"表格/模板/在哪下载/给我 XX 文件/需要什么材料" → 主要引用 link, answer 里做简短说明
-- 混合意图 → answer 给知识说明, cited_link_ids 附上相关资源"""),
+【判断规则】(适用于 Branch C)
+- 用户问 "是什么 / 怎么样 / 为什么" → 主要用 content 生成 answer
+- 用户问 "表格 / 模板 / 在哪下载 / 给我 XX 文件 / 需要什么材料" → 主要引用 link, answer 简短说明
+- 混合意图 → answer 给知识说明, cited_link_ids 附相关资源
+
+【严格通用规则】(所有 branch 都必须遵守)
+- 不要在 answer 里输出 URL
+- 不要在 answer 里输出 resource_id 字符串 (如 "visa_study_first_minor_material_list")
+- 不要在 answer 里说 "请参考以下链接" 然后列出 resource_id
+- answer 只用自然语言引导用户 (如 "具体材料清单请见下方相关资源"), 链接由系统自动展示
+- 所有需要引用的资源, resource_id 只放进 cited_link_ids 字段"""),
     MessagesPlaceholder(variable_name="chat_history"),
     ("human", "Context:\n{context}\n\nQuestion: {question}"),
 ])
 
+# --- Module-level constants ---
+RESOURCE_TYPE_LABELS = {
+    "content": "政策更新",
+    "guide": "指南",
+    "material_list": "材料清单",
+    "fee_template": "收费模版",
+    "info_form": "信息表",
+    "consent_form": "同意书",
+    "fill_instructions": "填写说明",
+    "authoritative_url": "外部权威源",
+}
 
 # --- Helpers ---
 def _format_chunk_index(raw):
@@ -270,10 +300,12 @@ def ask(question: str, session_id: str = "default") -> dict:
         history.append(AIMessage(content=result.answer))
 
         # Build sources
-        source_info = [
-            f"{doc.metadata.get('source', 'unknown')} 第{_format_chunk_index(doc.metadata.get('chunk_index', '?'))}块"
-            for doc in docs
-        ]
+        source_info = []
+        for doc in docs:
+            title = doc.metadata.get("resource_title") or "未命名资源"
+            rtype = doc.metadata.get("resource_type", "unknown")
+            type_label = RESOURCE_TYPE_LABELS.get(rtype, rtype)
+            source_info.append(f"{title} ({type_label})")
 
         # Resolve cited_link_ids -> full link details (guardrail against hallucinated IDs)
         retrieved_link_map = {
