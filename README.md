@@ -62,7 +62,7 @@ Multi-player turn-based board game (based on the physical board game) with Java 
 
 **Stack:** Java 11 · Swing · JUnit 4
 
-**Links:** [Code](https://github.com/ZihaoWang617/CS5010_KillDoctorLucky) · [UML & Design Doc](https://github.com/ZihaoWang617/CS5010_KillDoctorLucky/blob/main/res/UML-Milestone4.pdf)
+**Links:** [Code](https://github.com/ZihaoWang617/CS5010_KillDoctorLucky) · [UML & Design Doc](https://github.com/ZihaoWang617/CS5010_KillDoctorLucky/blob/main/res/UML%20Diagram%20for%20CS5010.pdf)
 
 ---
 
