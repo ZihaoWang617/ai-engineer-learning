@@ -319,7 +319,6 @@ def ask(question: str, session_id: str = "default") -> dict:
             "question": question,
             "chat_history": history,
         }) # type: ignore
-        print(f"[debug] branch={result.branch}, docs_count={len(docs)}")
 
         # Manually append to history AFTER successful invocation
         history.append(HumanMessage(content=question))

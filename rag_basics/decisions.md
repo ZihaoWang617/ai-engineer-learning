@@ -552,3 +552,24 @@ Cost: Cohere rerank 15 × $0.002 ≈ $0.03。
 - Trigger for re-evaluation: KB reaches 200 vectors OR per-slice regression exceeds 30%
 
 **Decision**: Retain rerank in production. Future work: add cross_category query type flag to route around rerank for high-risk queries.
+
+## ADR-XXX: sources 字段引入 branch metadata gating (Bug X1 fix)
+
+### Context
+sources 从设计上没有 relevance signal。sources 是把 retrieve() 返回的所有 docs 无差别拼接。
+
+### Decision
+引入 branch metadata， sources 语义变成"当 LLM 认为 KB 有实质关联时展示的检索结果"。
+### Eliminated problem
+[你 Q1 修正版的答案]
+
+### Introduced cost
+- Runtime: Q2 里 LLM 每次多输出一个字段
+- Maintenance: Q2 里加 branch 时的三处联动改动
+
+### Scale breakpoint
+~8-10 branch. 超过后 prompt 长度和 LLM 分类准确率会退化, 需换两级分类或前置 intent classifier.
+
+### Rejected alternatives
+- Option 1 (sources 绑 links): 破坏 debug 透明性
+- Option 2 (frontend gate): 伪选项, backend 无 relevance signal 传给 frontend

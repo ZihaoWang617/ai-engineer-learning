@@ -148,3 +148,42 @@ LeetCode 平台 Submit 5 秒之内会立刻红字 syntax error。我都没粘到
 2 周后 check 这 6 个 pattern 是否再犯。任意 1 个再犯 → 这份文档底部 append 新 case + 具体场景。
 
 **目标**：Day 47-60 期间，能在**犯错前**预先意识到（pre-mortem mindset），不是事后回顾。
+
+## Day 84: 简历技术表述 vs 实际代码的对齐 audit
+
+**Trigger**: 写 portfolio README 时准备 link 到 InterAIct project
+
+**问题暴露**:
+- 简历写 "trained ResNet18" 但实际是 fine-tuned（改 fc 层，不是从零训练）
+- 简历写 "via ONNX" 但部署代码里主要用 torch.jit.script，ONNX 是最终步
+- 简历 InterAIct 描述像单人项目，实际是 team hackathon，repo owner 是队友
+
+**Root cause**: 简历半年前写的时候没做严格技术表述 audit，凭印象总结
+
+**Fix**:
+- 每次改简历 bullet 前，找到对应代码或产物，验证每个技术动词的准确性
+- Team project 明确标注 "Team hackathon project" 或 "my contributions"
+- 建立"简历诚信 checklist"，每季度过一次
+
+**Related**: 之前 anti-pattern "以为做了就不验证" 的变体
+
+## Day 85 (2026-08-26): Bug 1 UI 修复不彻底 — 字段语义未先定义
+
+**症状**: chit-chat query "你好" 仍返回 3 条 sources，
+但 links 为 [] (URL 反幻觉修复有效)。
+
+**Root cause**: Bug 1 修复时只 gate 在 `links` 字段的 UI 显示逻辑,
+但 `sources` 字段仍然直接暴露 retriever top-k 结果。
+两个字段语义混淆:
+- `links` = LLM 显式 cited_link_ids 经 deterministic 解析
+- `sources` = retriever top-k 候选文档标题
+UI 展示的"资料来源"绑在 sources 上,不是 links。
+
+**教训**: Bug 修复前必须先定义字段语义边界。
+"UI 层修复"是 too vague — 到底 gate 在哪个字段上,
+字段本身该不该重构,是架构决策不是显示逻辑。
+
+**Anti-pattern name**: 修 UI 不问语义
+
+**Self-check question 加入 SOP**:
+Bug 修复前先答: "这个字段代表什么? 它应该在什么条件下为空?"
