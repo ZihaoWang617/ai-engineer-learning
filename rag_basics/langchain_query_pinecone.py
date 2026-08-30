@@ -41,6 +41,26 @@ bm25_retriever.k = 3
 
 from typing import Literal
 
+class ChunkRelevance(BaseModel):
+    """Represents the relevance assessment of a single context chunk to the user question."""
+    chunk_index: int = Field(description=(
+    "该 chunk 在本次 Context 里的位置, 对应 [Context-Chunk-N] 标记里的 N. "
+    "0-indexed, 范围 0 到 (Context chunk 总数 - 1). "
+    "不是 KB 原始 chunk_index." 
+    ))
+    score: Literal["HIGH", "MEDIUM", "NONE"] = Field(
+        description=(
+            "该 chunk 与 Question 的相关性评分. "
+            "HIGH = chunk 内容直接定义/解释/回答了 Question 的核心概念. "
+            "MEDIUM = chunk 与 Question 相关但只覆盖子场景/单个更新点, 不足以完整回答核心问题. "
+            "NONE = chunk 仅在关键词或大类别上沾边, 内容与 Question 无实质关联 (例: Question 问 'BC PNP 是什么', chunk 内容是 'EE 体检要求' 或 'OINP 打分调整')."
+        )
+    )
+    reason: str = Field(
+        description="用一句简短中文解释为什么给这个 score (例: 'chunk 内容是 EE 政策更新, 与 BC PNP 无关')."
+    )
+
+
 class RagOutput(BaseModel):
     """Structured output for the RAG chain."""
     answer: str = Field(description="自然语言回答，用中文")
@@ -58,10 +78,47 @@ class RagOutput(BaseModel):
             "list their resource_id values here. Empty list if no link is cited."
         ),
     )
+    relevance_assessment: list[ChunkRelevance] = Field(
+    description=(
+        "对 Context 里每一个 chunk 逐一做相关性评估. "
+        "列表长度必须等于 Context 里的 chunk 数量, 顺序与 Context 一致. "
+        "这个字段必须在选择 branch 之前完成, branch 判定依赖于此评估."
+        )
+    )
 
 # --- Prompt ---
 prompt = ChatPromptTemplate.from_messages([
     ("system", """你是移民咨询助手, 只根据提供的 Context 回答用户问题, 不要编造。
+【Step 0: Relevance Gate】(必须先做, 再选 branch)
+
+在选择 branch 之前 (包括 Branch A / 闲聊 场景), 必须先对 Context 里每一个 chunk 
+逐一评估相关性, 填入 relevance_assessment 字段.
+
+严格约束:
+- list 长度必须严格等于 Context 里实际显示的 chunk 数量
+- chunk_index 必须是 Context 里 [Context-Chunk-N] 标记里的那个 N (从 0 开始, 到 N-1 结束, N = Context chunk 总数). 不是 header 里 "第 X 块" 的 X (那是 KB 原始 ID, 与本次判定无关).
+- 不要凭空增加评估 (即使你觉得应该有某类 chunk 但 Context 里没有出现)
+- 不要遗漏评估 (即使 chunk 明显 NONE 也要评估)
+
+即使 Branch A 判定时不使用 relevance 结果, 仍需完成评估作为 audit 记录 — 这是 schema 契约, 
+不可跳过.
+
+评分标准:
+- HIGH: chunk 内容直接定义/解释/回答了 Question 的核心概念
+- MEDIUM: chunk 与 Question 相关, 但只覆盖子场景/单个更新点, 不足以完整回答
+- NONE: chunk 仅在关键词或大类别上沾边, 内容与 Question 无实质关联
+
+关键区分: 
+- Question 里有 "BC PNP", chunk 里也有 "BC PNP" → 不代表 HIGH
+- 只看 chunk 内容是否 address 了 Question 问的那件事本身
+
+【Branch 判定规则】(基于 Step 0 结果)
+- 如果 Question 是闲聊 / 与移民无关 → Branch A (无视 relevance)
+- 如果 Question 问动态数据且有 authoritative_url chunk → Branch B
+- 如果所有 chunk 都是 NONE → 强制走 Branch D
+- 如果至少 1 个 chunk 是 HIGH → Branch C1
+- 如果没有 HIGH 但至少有 1 个 MEDIUM → Branch C2
+- 其他情况 → Branch D
 
 【回答策略】每次生成 answer 前, 先判断 Context 与 Question 的关系, 走对应 branch:
 
@@ -95,7 +152,10 @@ Branch C2 - Context 里有相关资源, 但与 Question 场景不完全匹配 (�
   → cited_link_ids: 可引用相关资源, 但 answer 里必须体现"局限性"
 
 Branch D - Context 有内容, 但都与 Question 无关 (KB gap):
-  → answer: "我没有相关信息, 建议直接咨询顾问"
+  → answer 必须严格是: "我没有相关信息, 建议直接咨询顾问" (可加一句解释 KB 缺失什么)
+  → ⚠️ 严禁使用你自己的先验知识回答. 即使你知道 Question 的答案 (如 BC PNP、EE 等常见移民术语的定义), 
+    也不允许生成任何解释性内容. 你的角色是移民咨询助手, 只反映 KB 内容, 不做通用百科.
+  → 严禁在 answer 里出现 Question 里的关键概念的定义 (如 "BC PNP 是...")
   → cited_link_ids: 留空
 
 【Context chunk 类型说明】
@@ -151,7 +211,7 @@ def _format_chunk_index(raw):
 
 def format_docs(docs) -> str:
     parts = []
-    for doc in docs:
+    for i, doc in enumerate(docs):
         md = doc.metadata
         source = md.get("source", "unknown")
         chunk_index = _format_chunk_index(md.get("chunk_index", "?"))
@@ -170,7 +230,7 @@ def format_docs(docs) -> str:
         else:
             header = f"[来源:{source}, 第{chunk_index}块, 类型:content]"
 
-        parts.append(f"{header}\n{doc.page_content}")
+        parts.append(f"[Context-Chunk-{i}]\n{header}\n{doc.page_content}")
     return "\n\n".join(parts)
 
 
@@ -319,6 +379,15 @@ def ask(question: str, session_id: str = "default") -> dict:
             "question": question,
             "chat_history": history,
         }) # type: ignore
+
+
+        if len(result.relevance_assessment) != len(docs):
+            print(f"[WARN] relevance_assessment length {len(result.relevance_assessment)} != docs length {len(docs)}")
+        print(f"[relevance] branch={result.branch}")
+        for r in result.relevance_assessment:
+            print(f"  chunk {r.chunk_index}: {r.score} - {r.reason}")
+        if result.branch == "D":
+            result.answer = "我没有相关信息, 建议直接咨询顾问。"
 
         # Manually append to history AFTER successful invocation
         history.append(HumanMessage(content=question))
