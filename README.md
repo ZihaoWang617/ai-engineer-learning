@@ -22,6 +22,7 @@ Production RAG system deployed for immigration consultants at Jianuo Internation
 - **Deterministic URL resolution outside the LLM.** Agent returns `cited_link_ids`; code resolves URLs from the KB. Zero hallucinated citations, regardless of LLM output.
 - **5-branch prompt decision rule** for scope control — separates chit-chat, dynamic-data queries, exact/partial KB matches, and KB gaps. Prevents over-generalization and surfaces knowledge boundaries.
 - **Semantic header-based chunking** on policy documents; unified metadata schema across content chunks and authoritative external links (82 vectors, 19 L2 category groups).
+- **Relevance-gated branch classification.** LLM assigns HIGH/MEDIUM/NONE relevance per retrieved chunk before branch selection; forces honest-failure Branch D when all chunks are NONE. Two-layer defense combines prompt-level anti-parametric-knowledge instruction + deterministic code override on Branch D to prevent the LLM from leaking training-data as fake KB citations.
 - **Ablation study (4 configs × 15 queries):** BM25's default whitespace tokenizer silently fails on Chinese queries — contributes zero to retrieval. Cohere rerank shows high per-query variance (±0.333) with no aggregate gain at current KB scale. Findings drove architecture decisions logged in `decisions.md`.
 
 **Links:** [Live Demo](https://ai-immigration-assistant-ui.onrender.com) · [API](https://ai-immigration-assistant.onrender.com) · [Code](./rag_basics) · [Architecture Decisions](./rag_basics/decisions.md)
@@ -68,9 +69,8 @@ Multi-player turn-based board game (based on the physical board game) with Java 
 
 ## Other Projects
 
-- **AI Code Reviewer** — REST API with dual LLM support (OpenAI + Anthropic), function-calling dispatch pattern for automatic file reading across differing tool schemas. FastAPI + Pydantic + UUID-keyed JSON persistence. [Code](./code-reviewer) · [Live API](https://ai-engineer-learning.onrender.com)
+- **AI Code Reviewer** — REST API with dual LLM support (OpenAI + Anthropic), function-calling dispatch pattern for automatic file reading across differing tool schemas. FastAPI + Pydantic + UUID-keyed JSON persistence. [Code](./code-reviewer)
 - **Climate Resilience ML** — Regression pipeline optimizing fertilization from weather + soil data. Pandas + Scikit-learn. 🏆 2nd Place, Northeastern Climate Resilience Hackathon (Dec 2024).
-
 ---
 
 ## Repository Structure
@@ -79,12 +79,13 @@ This mono-repo tracks my AI engineering work. Highlighted project directories:
 
 ```
 ├── rag_basics/         Jianuo AI Immigration Assistant (production RAG)
-├── code-reviewer/      AI Code Reviewer REST API
 ├── leetcode-notes/     NeetCode 150 progress
 └── decisions.md        Architecture decision records
 ```
 
 Each active project directory contains its own README with setup, architecture, and technical notes.
+
+
 ---
 
 ## About
