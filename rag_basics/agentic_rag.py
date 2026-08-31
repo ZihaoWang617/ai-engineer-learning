@@ -1,7 +1,7 @@
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
 from langchain_openai import ChatOpenAI
-from langchain_query import format_docs, hybrid_retriever, rerank_docs
+from rag_basics.langchain_query_pinecone import format_docs, hybrid_retriever, rerank_docs
 
 class AgenticRAGState(TypedDict):
     question: str

@@ -573,3 +573,10 @@ sources 从设计上没有 relevance signal。sources 是把 retrieve() 返回�
 ### Rejected alternatives
 - Option 1 (sources 绑 links): 破坏 debug 透明性
 - Option 2 (frontend gate): 伪选项, backend 无 relevance signal 传给 frontend
+
+- [x] Day 55 `retrieve_with_reranking()` 重构 — 实际由 retrieve() 统一入口完成(ablation 时)
+- Day 88: ChromaDB 分支退役, agentic_rag / server_v3 收敛到 langchain_query_pinecone
+- Bug X8 (已修): agentic_rag.py bare import, Day 54 refactor 漏网
+- X4a 残余风险: all-MEDIUM → C2, 而 MEDIUM 定义为"不足以完整回答"。收紧选项 no-HIGH→D, 待 regression set 数据
+- X4a latency 未测量, O(k) in chunks, k>5 需重估
+- X4b 降级: 概念内容在 git 0b81e37, 恢复+补 metadata 即可, 非撰写任务。待决: 英文原文语言一致性

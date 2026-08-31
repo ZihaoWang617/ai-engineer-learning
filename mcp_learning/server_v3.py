@@ -1,6 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 import json
-from rag_basics.langchain_query import vectorstore, hybrid_retriever, rerank_docs
+from rag_basics.langchain_query_pinecone import hybrid_retriever, rerank_docs
 mcp = FastMCP("immigration-assistant")
 
 PROGRAMS = {
