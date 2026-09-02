@@ -19,18 +19,23 @@ That constraint shaped most of the design decisions below. **An honest "I don't 
 ```
 Query
   │
-  ├─ Relevance gate ──── off-topic ──→ decline
+  ├─ Query rewrite (resolve pronouns against history)
   │
   ├─ Retrieval
-  │    ├─ Dense (text-embedding-3-small → Pinecone, cosine)
-  │    └─ BM25 (sparse keyword)
+  │    ├─ Dense (text-embedding-3-small → Pinecone)
+  │    └─ BM25 (sparse)
   │           └─ merged → top-6
   │
   ├─ Rerank (Cohere rerank-v3.5) → top-3
   │
-  ├─ Generation (gpt-4o-mini, structured Pydantic output)
+  ├─ Step 0: per-chunk relevance scoring (HIGH/MEDIUM/NONE)
+  │           └─ drives branch selection; all-NONE forces Branch D
   │
-  └─ URL guardrail (deterministic, outside the LLM)
+  ├─ Generation (gpt-4o-mini → structured Pydantic output)
+  │
+  └─ Deterministic post-checks outside the LLM
+       ├─ Branch D → answer overwritten with fixed decline
+       └─ cited link ids resolved only against retrieved docs
 ```
 
 **Stack:** Python · LangGraph · Pinecone · OpenAI · Cohere · FastAPI · Streamlit · Render
@@ -49,6 +54,8 @@ The knowledge base is Chinese. BM25's default tokenizer splits on whitespace, wh
 
 Ablation confirmed it: BM25-only scored 0.133 against a dense-only baseline of 0.533. **A component can fail completely without failing loudly.**
 
+BM25 is still wired into the pipeline with the default tokenizer. Fixing it means plugging in a Chinese segmenter (jieba or similar) and re-running the ablation to see whether lexical retrieval actually adds anything once it works. Until that's measured, the honest description is that this is a hybrid pipeline where one half currently contributes close to nothing.
+
 ### The aggregate score was hiding a regression
 
 I ran a stratified ablation across four configurations (15 queries × 4 configs). Dense-only and full hybrid+rerank both landed at 0.533 aggregate — no visible difference.
@@ -59,15 +66,17 @@ I kept reranking, since the failure mode it prevents matters more here than the 
 
 ### The model answered from its own weights
 
-On questions the knowledge base couldn't address, the model sometimes produced a correct-looking answer drawn from its training data rather than the retrieved context. Retrieval succeeded, output looked right, and no metric flagged it.
+On questions the knowledge base couldn't address, the model sometimes produced a correct-looking answer drawn from its training data rather than the retrieved context. Retrieval succeeded, the output looked right, and no metric flagged it — the answer was simply not grounded in anything the system had retrieved.
 
-The fix wasn't a better prompt. Prompts are requests, and a non-deterministic system can decline a request. Safety boundaries belong in deterministic code outside the LLM — the URL guardrail holds by construction, not because the model was asked nicely.
+The fix wasn't a better prompt. The prompt does ask the model to decline on KB gaps, but a prompt is a request and a non-deterministic system can ignore one. What actually holds is the code after generation: when the branch is D, the answer is overwritten with a fixed decline string, and cited link ids are resolved only against documents that were actually retrieved — a hallucinated id resolves to nothing. Those hold by construction, not by cooperation.
 
 ---
 
 ## Evaluation
 
 `evaluate.py` runs a stratified test set across four retrieval configurations and exports per-query, per-category results to CSV. Stratification is the point: as above, aggregate numbers hid the regression that mattered.
+
+The diagram above is the retrieval-and-answer pipeline. There is also an agent layer (agent_basic.py, agent_graph_*.py) that wraps this pipeline as a tool alongside three others, with checkpointed sessions and conditional routing between nodes.
 
 ---
 
