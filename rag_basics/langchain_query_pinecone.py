@@ -1,5 +1,3 @@
-from unittest import result
-
 from langchain_openai import OpenAIEmbeddings, ChatOpenAI
 from dotenv import load_dotenv
 from langchain_community.retrievers import BM25Retriever
@@ -10,9 +8,6 @@ from pydantic import BaseModel, Field
 import cohere
 from pathlib import Path
 import os
-
-from typer.cli import docs
-
 # Import loaders from ingest module to keep BM25 in sync with Pinecone
 from rag_basics.langchain_ingest_pinecone import load_content_chunks, load_link_chunks
 
